@@ -113,7 +113,7 @@ export default function ChatBox({ sessionId, dynastyName, sessionLoading }) {
   const isEmpty = messages.length === 0 && !sending
 
   return (
-    <div className="sticky top-20 flex flex-col bg-surface border border-surface2 rounded-2xl overflow-hidden h-[calc(100vh-6rem)]">
+    <div className="h-full flex flex-col bg-surface border border-surface2 rounded-2xl overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 py-4 border-b border-surface2 shrink-0">
         <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />

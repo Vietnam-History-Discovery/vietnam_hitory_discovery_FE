@@ -7,7 +7,7 @@ import Overview from '../components/dynasty/Overview'
 import KeyFigures from '../components/dynasty/KeyFigures'
 import HistoricalDocuments from '../components/dynasty/HistoricalDocuments'
 import ChatBox from '../components/chat/ChatBox'
-import { getDynastyByName } from '../services/dynastyService'
+import { getDynasties, getDynastyByName, getDynastyFromList } from '../services/dynastyService'
 import { createSession } from '../services/chatService'
 
 function ContentSkeleton() {
@@ -38,7 +38,7 @@ export default function DynastyDetailPage() {
   const [sessionId, setSessionId] = useState(null)
   const [sessionLoading, setSessionLoading] = useState(false)
 
-  // Fetch dynasty data
+  // Fetch dynasty detail data
   const {
     data: dynasty,
     isLoading,
@@ -48,6 +48,13 @@ export default function DynastyDetailPage() {
     queryFn: () => getDynastyByName(decodedName),
     enabled: !!decodedName,
   })
+
+  // Pull rich metadata from the cached dynasties list
+  const { data: dynastiesList } = useQuery({
+    queryKey: ['dynasties'],
+    queryFn: getDynasties,
+  })
+  const listDynasty = getDynastyFromList(dynastiesList, decodedName)
 
   // Create chat session once dynasty name is available
   useEffect(() => {
@@ -97,15 +104,15 @@ export default function DynastyDetailPage() {
               <ContentSkeleton />
             ) : dynasty ? (
               <>
-                <Overview chunks={dynasty.sample_chunks} />
-                <KeyFigures persons={dynasty.persons} />
+                <Overview chunks={dynasty.sample_chunks} listDynasty={listDynasty} />
+                <KeyFigures persons={dynasty.persons} keyFigures={listDynasty?.key_figures} />
                 <HistoricalDocuments chunks={dynasty.sample_chunks} />
               </>
             ) : null}
           </div>
 
-          {/* Right: ChatBox — always rendered, handles its own loading state */}
-          <div className="hidden lg:block mt-0">
+          {/* Right: ChatBox — sticky sidebar */}
+          <div className="hidden lg:block sticky top-16 h-[calc(100vh-4rem)] overflow-hidden">
             <ChatBox
               sessionId={sessionId}
               dynastyName={dynasty?.name ?? decodedName}

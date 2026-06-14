@@ -11,7 +11,6 @@ function getInitials(name) {
 function PersonCard({ name }) {
   return (
     <div className="flex flex-col items-center gap-3 bg-surface rounded-xl border border-surface2 hover:border-primary/30 p-5 transition-colors text-center">
-      {/* Avatar */}
       <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/30 flex items-center justify-center text-primary text-sm font-bold shrink-0">
         {getInitials(name)}
       </div>
@@ -20,8 +19,9 @@ function PersonCard({ name }) {
   )
 }
 
-export default function KeyFigures({ persons }) {
-  if (!persons?.length) return null
+export default function KeyFigures({ persons, keyFigures }) {
+  const figures = persons?.length ? persons : (keyFigures ?? [])
+  if (!figures.length) return null
 
   return (
     <section>
@@ -31,7 +31,7 @@ export default function KeyFigures({ persons }) {
       </h2>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        {persons.map((person, i) => {
+        {figures.map((person, i) => {
           const name = typeof person === 'string' ? person : person.name ?? String(person)
           return <PersonCard key={i} name={name} />
         })}
