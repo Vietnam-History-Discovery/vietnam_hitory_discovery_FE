@@ -1,9 +1,12 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 export default function Navbar() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const isActive = (path) => location.pathname.startsWith(path)
 
   const handleLogout = () => {
     logout()
@@ -31,21 +34,27 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-6">
             <Link
               to="/dynasties"
-              className="text-sm text-gray-400 hover:text-primary transition-colors"
+              className={`text-sm transition-colors ${isActive('/dynasties') ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}
             >
               Dynasties
             </Link>
             <Link
               to="/timeline"
-              className="text-sm text-gray-400 hover:text-primary transition-colors"
+              className={`text-sm transition-colors ${isActive('/timeline') ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}
             >
               Timeline
             </Link>
             <Link
               to="/articles"
-              className="text-sm text-gray-400 hover:text-primary transition-colors"
+              className={`text-sm transition-colors ${isActive('/articles') ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}
             >
               Articles
+            </Link>
+            <Link
+              to="/chat"
+              className={`text-sm transition-colors ${isActive('/chat') ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}
+            >
+              Chat
             </Link>
           </div>
 

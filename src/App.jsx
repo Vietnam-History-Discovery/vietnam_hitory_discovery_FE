@@ -6,6 +6,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import HomePage from './pages/HomePage'
 import DynastyDetailPage from './pages/DynastyDetailPage'
+import ChatPage from './pages/ChatPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -34,6 +35,22 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <DynastyDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat"
+              element={
+                <ProtectedRoute>
+                  <ChatPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/chat/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <ChatPage />
                 </ProtectedRoute>
               }
             />
