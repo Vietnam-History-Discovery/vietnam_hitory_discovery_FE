@@ -18,7 +18,7 @@ export default function RegisterPage() {
       await authService.register(username, email, password)
       navigate('/login')
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed. Please try again.')
+      setError(err.response?.data?.message || err.message || 'Registration failed. Please try again.')
     } finally {
       setLoading(false)
     }
