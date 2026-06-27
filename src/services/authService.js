@@ -1,20 +1,26 @@
-import api from './api'
+import { auth } from '../firebase'
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, updateProfile } from 'firebase/auth'
 
 export const login = async (email, password) => {
-  const response = await api.post('/api/auth/login', { email, password })
-  return response.data
+  const userCredential = await signInWithEmailAndPassword(auth, email, password)
+  return userCredential.user
 }
 
 export const register = async (username, email, password) => {
-  const response = await api.post('/api/auth/register', { username, email, password })
-  return response.data
+  const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+  await updateProfile(userCredential.user, { displayName: username })
+  return userCredential.user
 }
 
-export const logout = () => {
-  localStorage.removeItem('auth_token')
-  localStorage.removeItem('auth_user')
+export const logout = async () => {
+  await signOut(auth)
 }
 
-export const getToken = () => localStorage.getItem('auth_token')
+export const getToken = async () => {
+  if (auth.currentUser) {
+    return await auth.currentUser.getIdToken()
+  }
+  return null
+}
 
-export const isAuthenticated = () => !!getToken()
+export const isAuthenticated = () => !!auth.currentUser

@@ -1,33 +1,41 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useEffect } from 'react'
+import { auth } from '../firebase'
+import { onAuthStateChanged } from 'firebase/auth'
 import * as authService from '../services/authService'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem('auth_token'))
-  const [user, setUser] = useState(() => {
-    const stored = localStorage.getItem('auth_user')
-    return stored ? JSON.parse(stored) : null
-  })
+  const [user, setUser] = useState(null)
+  const [token, setToken] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser)
+        const idToken = await firebaseUser.getIdToken()
+        setToken(idToken)
+      } else {
+        setUser(null)
+        setToken(null)
+      }
+      setLoading(false)
+    })
+    return () => unsubscribe()
+  }, [])
 
   const login = async (email, password) => {
-    const data = await authService.login(email, password)
-    const authToken = data.token || data.accessToken || data.jwt
-    if (!authToken) throw new Error('No token received from server')
-    localStorage.setItem('auth_token', authToken)
-    localStorage.setItem('auth_user', JSON.stringify(data))
-    setToken(authToken)
-    setUser(data)
-    return data
+    return await authService.login(email, password)
   }
 
-  const logout = () => {
-    authService.logout()
-    setToken(null)
-    setUser(null)
+  const logout = async () => {
+    await authService.logout()
   }
 
-  const isAuthenticated = () => !!token
+  const isAuthenticated = () => !!user
+
+  if (loading) return <div>Loading...</div>
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated }}>
