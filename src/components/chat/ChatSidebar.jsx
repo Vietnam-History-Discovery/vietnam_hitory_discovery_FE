@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { Trash2 } from 'lucide-react'
@@ -19,6 +20,7 @@ function relativeTime(dateStr) {
 export default function ChatSidebar({ activeSessionId, onSelectSession, onNewChat }) {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
+  const [deletingSessionIds, setDeletingSessionIds] = useState(() => new Set())
 
   const { data: sessions = [], isLoading } = useQuery({
     queryKey: ['chat-sessions'],
@@ -27,16 +29,34 @@ export default function ChatSidebar({ activeSessionId, onSelectSession, onNewCha
 
   const handleDelete = async (e, sessionId) => {
     e.stopPropagation()
+    if (deletingSessionIds.has(sessionId)) return
     if (!window.confirm('Xóa cuộc trò chuyện này?')) return
+
+    const previousSessions = queryClient.getQueryData(['chat-sessions'])
+
+    setDeletingSessionIds((current) => new Set(current).add(sessionId))
+    queryClient.setQueryData(['chat-sessions'], (current = []) =>
+      current.filter((session) => session.id !== sessionId)
+    )
+
+    if (sessionId === activeSessionId) {
+      navigate('/chat')
+    }
 
     try {
       await chatService.deleteSession(sessionId)
-      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] })
-      if (sessionId === activeSessionId) {
-        navigate('/chat')
-      }
+      await queryClient.invalidateQueries({ queryKey: ['chat-sessions'] })
     } catch (err) {
+      if (previousSessions) {
+        queryClient.setQueryData(['chat-sessions'], previousSessions)
+      }
       console.error('Delete failed:', err)
+    } finally {
+      setDeletingSessionIds((current) => {
+        const next = new Set(current)
+        next.delete(sessionId)
+        return next
+      })
     }
   }
 
@@ -76,6 +96,7 @@ export default function ChatSidebar({ activeSessionId, onSelectSession, onNewCha
         ) : (
           sessions.map((session) => {
             const isActive = session.id === activeSessionId
+            const isDeleting = deletingSessionIds.has(session.id)
             const preview = (session.title || session.lastMessage || 'Cuộc trò chuyện').slice(0, 40)
             const ts = session.updatedAt ?? session.lastMessageAt ?? session.createdAt
 
@@ -88,6 +109,7 @@ export default function ChatSidebar({ activeSessionId, onSelectSession, onNewCha
               >
                 <button
                   onClick={() => onSelectSession(session.id)}
+                  disabled={isDeleting}
                   className="flex-1 min-w-0 text-left px-4 py-3 pr-2"
                 >
                   <p
@@ -102,8 +124,9 @@ export default function ChatSidebar({ activeSessionId, onSelectSession, onNewCha
 
                 <button
                   onClick={(e) => handleDelete(e, session.id)}
+                  disabled={isDeleting}
                   title="Xóa cuộc trò chuyện"
-                  className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-1.5 mr-2 rounded-lg text-gray-600 hover:bg-red-500/20 hover:text-red-400"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-1.5 mr-2 rounded-lg text-gray-600 hover:bg-red-500/20 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                 </button>
