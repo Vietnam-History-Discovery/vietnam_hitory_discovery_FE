@@ -7,6 +7,7 @@ import RegisterPage from './pages/RegisterPage'
 import HomePage from './pages/HomePage'
 import DynastyDetailPage from './pages/DynastyDetailPage'
 import ChatPage from './pages/ChatPage'
+import TimelinePage from './pages/TimelinePage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +52,22 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <ChatPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/timeline"
+              element={
+                <ProtectedRoute>
+                  <TimelinePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/timeline/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <TimelinePage />
                 </ProtectedRoute>
               }
             />
