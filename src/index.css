@@ -29,3 +29,51 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-surface2) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--color-surface2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-primary);
+}
+
+@keyframes message-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-message-in {
+  animation: message-in 0.25s ease-out;
+}
+
+@keyframes timeline-event-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--tl-slide, 16px)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+.animate-timeline-event-in {
+  animation: timeline-event-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

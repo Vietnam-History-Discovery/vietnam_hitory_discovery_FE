@@ -1,9 +1,8 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import { auth } from '../firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import * as authService from '../services/authService'
-
-const AuthContext = createContext(null)
+import { AuthContext } from './authContextInstance'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
@@ -35,17 +34,26 @@ export function AuthProvider({ children }) {
 
   const isAuthenticated = () => !!user
 
-  if (loading) return <div>Loading...</div>
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="flex flex-col items-center gap-5 animate-message-in">
+          <div className="relative w-16 h-16 flex items-center justify-center">
+            <div className="absolute inset-0 rounded-full border-2 border-surface2 border-t-primary animate-spin" />
+            <span className="text-primary text-2xl">✦</span>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <p className="text-primary font-bold tracking-[0.2em] text-sm uppercase">Vietnam Chronicles</p>
+            <p className="text-gray-600 text-xs">Đang tải...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   )
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext)
-  if (!context) throw new Error('useAuth must be used within AuthProvider')
-  return context
 }
