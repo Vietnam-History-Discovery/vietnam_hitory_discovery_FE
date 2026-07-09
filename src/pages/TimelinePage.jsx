@@ -1,8 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import Navbar from '../components/layout/Navbar'
-import WorkspaceSidebar from '../components/layout/WorkspaceSidebar'
 import TimelineVisualization from '../components/timeline/TimelineVisualization'
 import TimelineChatPanel from '../components/timeline/TimelineChatPanel'
 import chatService from '../services/chatService'
@@ -85,6 +83,22 @@ export default function TimelinePage() {
   useEffect(() => {
     sendingRef.current = sending
   }, [sending])
+
+  useEffect(() => {
+    if (activeSessionId) return undefined
+
+    let ignore = false
+    queueMicrotask(() => {
+      if (ignore) return
+      setMessages([])
+      setSelectedSnapshot(null)
+      setSessionTitle('')
+    })
+
+    return () => {
+      ignore = true
+    }
+  }, [activeSessionId])
 
   useEffect(() => {
     if (!activeSessionId) return undefined
@@ -182,47 +196,21 @@ export default function TimelinePage() {
     }
   }, [])
 
-  const handleNewTimeline = useCallback(() => {
-    setMessages([])
-    setSelectedSnapshot(null)
-    setSessionTitle('')
-    navigate('/timeline')
-  }, [navigate])
-
-  const handleSelectSession = useCallback((id, type) => {
-    navigate(type === 'CHAT' ? `/chat/${id}` : `/timeline/${id}`)
-  }, [navigate])
-
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <Navbar />
+    <>
+      {/* Center: Timeline visualization */}
+      <TimelineVisualization
+        snapshot={selectedSnapshot}
+        loading={sending && !selectedSnapshot}
+      />
 
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Left: session sidebar */}
-        <div className="hidden md:flex shrink-0">
-          <WorkspaceSidebar
-            activeSessionId={activeSessionId}
-            activeType="TIMELINE"
-            onSelectSession={handleSelectSession}
-            onNewChat={() => navigate('/chat')}
-            onNewTimeline={handleNewTimeline}
-          />
-        </div>
-
-        {/* Center: Timeline visualization */}
-        <TimelineVisualization
-          snapshot={selectedSnapshot}
-          loading={sending && !selectedSnapshot}
-        />
-
-        {/* Right: Timeline chat panel */}
-        <TimelineChatPanel
-          messages={messages}
-          sending={sending}
-          onSend={handleSend}
-          onSelectSnapshot={handleSelectSnapshot}
-        />
-      </div>
-    </div>
+      {/* Right: Timeline chat panel */}
+      <TimelineChatPanel
+        messages={messages}
+        sending={sending}
+        onSend={handleSend}
+        onSelectSnapshot={handleSelectSnapshot}
+      />
+    </>
   )
 }

@@ -153,10 +153,9 @@ export default function TimelineChatPanel({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={sending}
           placeholder="Hỏi về lịch sử..."
           rows={1}
-          className="flex-1 resize-none overflow-hidden bg-surface2 border border-surface2 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-600 focus:outline-none transition-colors disabled:opacity-50 leading-snug"
+          className="flex-1 resize-none overflow-hidden bg-surface2 border border-surface2 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-600 focus:outline-none transition-colors leading-snug"
         />
         <button
           onClick={handleSend}

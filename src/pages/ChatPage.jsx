@@ -1,13 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import Navbar from '../components/layout/Navbar'
-import WorkspaceSidebar from '../components/layout/WorkspaceSidebar'
 import ChatWindow from '../components/chat/ChatWindow'
 import RelatedSuggestions from '../components/chat/RelatedSuggestions'
 import chatService from '../services/chatService'
 
-// API returns entities as string[] — pass all as dynasty/topic links for now
 function extractSuggestions(data) {
   const entities = data.entities ?? []
   if (!entities.length) return null
@@ -211,12 +208,16 @@ export default function ChatPage() {
     const requestId = ++loadRequestRef.current
 
     if (!activeSessionId) {
-      return
+      return undefined
     }
 
-    setMessages([])
-    setSuggestions(null)
-    setSessionTitle('')
+    let ignore = false
+    queueMicrotask(() => {
+      if (ignore) return
+      setMessages([])
+      setSuggestions(null)
+      setSessionTitle('')
+    })
 
     chatService.getSession(activeSessionId)
       .then((data) => {
@@ -227,6 +228,10 @@ export default function ChatPage() {
         if (title) setSessionTitle(title)
       })
       .catch(() => {})
+
+    return () => {
+      ignore = true
+    }
   }, [activeSessionId])
 
   useEffect(() => {
@@ -245,49 +250,22 @@ export default function ChatPage() {
     handleSend(initialQuestion)
   }, [activeSessionId, handleSend])
 
-  const handleNewChat = () => {
-    setMessages([])
-    setSuggestions(null)
-    setSessionTitle('')
-    setInput('')
-    navigate('/chat')
-  }
-
-  const handleSelectSession = (id, type) => {
-    navigate(type === 'TIMELINE' ? `/timeline/${id}` : `/chat/${id}`)
-  }
-
   return (
-    <div className="h-screen flex flex-col bg-background overflow-hidden">
-      <Navbar />
+    <>
+      {/* Center panel */}
+      <ChatWindow
+        messages={messages}
+        sending={sending}
+        sessionTitle={sessionTitle}
+        input={input}
+        onInputChange={setInput}
+        onSend={handleSend}
+      />
 
-      <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Left panel — hidden on mobile */}
-        <div className="hidden md:flex shrink-0">
-          <WorkspaceSidebar
-            activeSessionId={activeSessionId}
-            activeType="CHAT"
-            onSelectSession={handleSelectSession}
-            onNewChat={handleNewChat}
-            onNewTimeline={() => navigate('/timeline')}
-          />
-        </div>
-
-        {/* Center panel */}
-        <ChatWindow
-          messages={messages}
-          sending={sending}
-          sessionTitle={sessionTitle}
-          input={input}
-          onInputChange={setInput}
-          onSend={handleSend}
-        />
-
-        {/* Right panel — hidden on tablet and below */}
-        <div className="hidden lg:flex shrink-0">
-          <RelatedSuggestions suggestions={suggestions} onFollowUp={handleSend} />
-        </div>
+      {/* Right panel — hidden on tablet and below */}
+      <div className="hidden lg:flex shrink-0">
+        <RelatedSuggestions suggestions={suggestions} onFollowUp={handleSend} />
       </div>
-    </div>
+    </>
   )
 }
