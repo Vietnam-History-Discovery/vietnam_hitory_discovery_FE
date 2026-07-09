@@ -1,19 +1,27 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { useTypewriter } from '../../hooks/useTypewriter'
+import { TypeAnimation } from 'react-type-animation'
 
 export default function ChatMessage({ role, content, stream = false }) {
   const isUser = role === 'user' || role === 'USER'
-  const { displayed, done } = useTypewriter(content, { enabled: stream && !isUser })
-  const showMarkdown = isUser || !stream || done
+  const isStreaming = stream && !isUser
+  const [done, setDone] = useState(!isStreaming)
+  const showMarkdown = isUser || !isStreaming || done
   const rootRef = useRef(null)
 
+  const sequence = useMemo(() => [content, () => setDone(true)], [content])
+
   useEffect(() => {
-    if (stream && !isUser && !done) {
-      rootRef.current?.scrollIntoView({ block: 'nearest' })
-    }
-  }, [displayed, stream, isUser, done])
+    if (!isStreaming || done) return undefined
+    const node = rootRef.current
+    if (!node) return undefined
+    const observer = new MutationObserver(() => {
+      node.scrollIntoView({ block: 'nearest' })
+    })
+    observer.observe(node, { childList: true, characterData: true, subtree: true })
+    return () => observer.disconnect()
+  }, [isStreaming, done])
 
   return (
     <div ref={rootRef} className={`flex gap-3 animate-message-in ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -38,27 +46,30 @@ export default function ChatMessage({ role, content, stream = false }) {
           {isUser ? (
             content
           ) : !showMarkdown ? (
-            <span>
-              {displayed}
-              <span className="inline-block w-1.5 h-4 bg-primary/70 ml-0.5 align-middle animate-pulse" />
-            </span>
+            <TypeAnimation
+              sequence={sequence}
+              wrapper="span"
+              speed={85}
+              cursor
+              repeat={0}
+            />
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}
               components={{
-                p: ({node, ...props}) => <p className="mb-2 last:mb-0" {...props} />,
-                ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2" {...props} />,
-                ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-2" {...props} />,
-                li: ({node, ...props}) => <li className="mb-1" {...props} />,
-                a: ({node, ...props}) => <a className="text-primary hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
-                strong: ({node, ...props}) => <strong className="font-semibold text-white" {...props} />,
-                h1: ({node, ...props}) => <h1 className="text-xl font-bold mb-2 mt-4 text-white" {...props} />,
-                h2: ({node, ...props}) => <h2 className="text-lg font-bold mb-2 mt-4 text-white" {...props} />,
-                h3: ({node, ...props}) => <h3 className="text-md font-bold mb-2 mt-3 text-white" {...props} />,
-                table: ({node, ...props}) => <div className="overflow-x-auto mb-4"><table className="border-collapse table-auto w-full text-sm" {...props} /></div>,
-                th: ({node, ...props}) => <th className="border border-surface1 px-4 py-2 text-left font-bold text-white bg-surface1/50" {...props} />,
-                td: ({node, ...props}) => <td className="border border-surface1 px-4 py-2 text-gray-300" {...props} />,
-                code: ({node, inline, className, children, ...props}) => {
+                p: ({ ...props}) => <p className="mb-2 last:mb-0" {...props} />,
+                ul: ({ ...props}) => <ul className="list-disc pl-5 mb-2" {...props} />,
+                ol: ({ ...props}) => <ol className="list-decimal pl-5 mb-2" {...props} />,
+                li: ({ ...props}) => <li className="mb-1" {...props} />,
+                a: ({ ...props}) => <a className="text-primary hover:underline" target="_blank" rel="noopener noreferrer" {...props} />,
+                strong: ({ ...props}) => <strong className="font-semibold text-white" {...props} />,
+                h1: ({ ...props}) => <h1 className="text-xl font-bold mb-2 mt-4 text-white" {...props} />,
+                h2: ({ ...props}) => <h2 className="text-lg font-bold mb-2 mt-4 text-white" {...props} />,
+                h3: ({ ...props}) => <h3 className="text-md font-bold mb-2 mt-3 text-white" {...props} />,
+                table: ({ ...props}) => <div className="overflow-x-auto mb-4"><table className="border-collapse table-auto w-full text-sm" {...props} /></div>,
+                th: ({ ...props}) => <th className="border border-surface1 px-4 py-2 text-left font-bold text-white bg-surface1/50" {...props} />,
+                td: ({ ...props}) => <td className="border border-surface1 px-4 py-2 text-gray-300" {...props} />,
+                code: ({ inline, className, children, ...props}) => {
                   const match = /language-(\w+)/.exec(className || '')
                   return !inline ? (
                     <div className="bg-[#1e1e1e] rounded-md my-2 overflow-hidden border border-surface1">

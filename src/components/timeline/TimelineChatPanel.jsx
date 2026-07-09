@@ -1,18 +1,25 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import TimelineSnapshotCard from './TimelineSnapshotCard'
-import { useTypewriter } from '../../hooks/useTypewriter'
+import { TypeAnimation } from 'react-type-animation'
 
 function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot, stream = false }) {
   const isUser = role === 'USER' || role === 'user'
-  const { displayed, done } = useTypewriter(content, { enabled: stream && !isUser })
-  const shownText = stream && !isUser ? displayed : content
+  const isStreaming = stream && !isUser
+  const [done, setDone] = useState(!isStreaming)
   const rootRef = useRef(null)
 
+  const sequence = useMemo(() => [content, () => setDone(true)], [content])
+
   useEffect(() => {
-    if (stream && !isUser && !done) {
-      rootRef.current?.scrollIntoView({ block: 'nearest' })
-    }
-  }, [displayed, stream, isUser, done])
+    if (!isStreaming || done) return undefined
+    const node = rootRef.current
+    if (!node) return undefined
+    const observer = new MutationObserver(() => {
+      node.scrollIntoView({ block: 'nearest' })
+    })
+    observer.observe(node, { childList: true, characterData: true, subtree: true })
+    return () => observer.disconnect()
+  }, [isStreaming, done])
 
   return (
     <div ref={rootRef} className={`flex gap-3 animate-message-in ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -29,12 +36,19 @@ function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot,
               : 'bg-surface2 text-gray-200 rounded-bl-sm border border-surface2/80'
           }`}
         >
-          {shownText}
-          {stream && !isUser && !done && (
-            <span className="inline-block w-1.5 h-4 bg-primary/70 ml-0.5 align-middle animate-pulse" />
+          {isStreaming && !done ? (
+            <TypeAnimation
+              sequence={sequence}
+              wrapper="span"
+              speed={85}
+              cursor
+              repeat={0}
+            />
+          ) : (
+            content
           )}
         </div>
-        {!isUser && timeline && (!stream || done) && (
+        {!isUser && timeline && (!isStreaming || done) && (
           <div className="mt-1 w-full max-w-xs animate-message-in">
             <TimelineSnapshotCard
               snapshot={timeline}
