@@ -1,27 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { TypeAnimation } from 'react-type-animation'
 
-export default function ChatMessage({ role, content, stream = false }) {
+export default function ChatMessage({ role, content, isStreaming = false }) {
   const isUser = role === 'user' || role === 'USER'
-  const isStreaming = stream && !isUser
-  const [done, setDone] = useState(!isStreaming)
-  const showMarkdown = isUser || !isStreaming || done
+  const showMarkdown = isUser || !isStreaming
   const rootRef = useRef(null)
 
-  const sequence = useMemo(() => [content, () => setDone(true)], [content])
-
   useEffect(() => {
-    if (!isStreaming || done) return undefined
-    const node = rootRef.current
-    if (!node) return undefined
-    const observer = new MutationObserver(() => {
-      node.scrollIntoView({ block: 'nearest' })
-    })
-    observer.observe(node, { childList: true, characterData: true, subtree: true })
-    return () => observer.disconnect()
-  }, [isStreaming, done])
+    if (isStreaming) {
+      rootRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [content, isStreaming])
 
   return (
     <div ref={rootRef} className={`flex gap-3 animate-message-in ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -46,13 +36,22 @@ export default function ChatMessage({ role, content, stream = false }) {
           {isUser ? (
             content
           ) : !showMarkdown ? (
-            <TypeAnimation
-              sequence={sequence}
-              wrapper="span"
-              speed={85}
-              cursor
-              repeat={0}
-            />
+            content ? (
+              <span>
+                {content}
+                <span className="inline-block w-1.5 h-4 bg-primary/70 ml-0.5 align-middle animate-pulse" />
+              </span>
+            ) : (
+              <span className="flex items-center gap-1.5 py-0.5">
+                {[0, 1, 2].map((i) => (
+                  <span
+                    key={i}
+                    className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce"
+                    style={{ animationDelay: `${i * 0.15}s` }}
+                  />
+                ))}
+              </span>
+            )
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}

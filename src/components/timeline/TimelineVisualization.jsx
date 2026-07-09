@@ -83,9 +83,9 @@ export default function TimelineVisualization({ snapshot, loading }) {
   const events = snapshot.events ?? []
 
   return (
-    <div ref={containerRef} className="flex-1 overflow-y-auto bg-background py-8 px-4">
+    <div key={snapshot.id} ref={containerRef} className="flex-1 overflow-y-auto bg-background py-8 px-4">
       {/* Header */}
-      <div className="text-center mb-10">
+      <div className="text-center mb-10 animate-message-in">
         <h2 className="text-lg font-bold text-gray-100">{snapshot.title}</h2>
         <p className="text-xs text-gray-600 mt-1">{events.length} sự kiện lịch sử</p>
       </div>
@@ -95,14 +95,24 @@ export default function TimelineVisualization({ snapshot, loading }) {
         <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-primary/20 -translate-x-1/2" />
 
         <div className="relative space-y-12">
-          {events.map((event, index) => (
-            <div key={event.id || index} className="relative">
-              <SpineDot isLast={index === events.length - 1} />
-              <div className={index % 2 === 0 ? 'pr-[calc(50%+2rem)]' : 'pl-[calc(50%+2rem)]'}>
-                <EventCard event={event} index={index} isLast={index === events.length - 1} />
+          {events.map((event, index) => {
+            const side = index % 2 === 0 ? 'left' : 'right'
+            return (
+              <div
+                key={event.id || index}
+                className="relative animate-timeline-event-in"
+                style={{
+                  animationDelay: `${index * 70}ms`,
+                  '--tl-slide': side === 'left' ? '-16px' : '16px',
+                }}
+              >
+                <SpineDot isLast={index === events.length - 1} />
+                <div className={side === 'left' ? 'pr-[calc(50%+2rem)]' : 'pl-[calc(50%+2rem)]'}>
+                  <EventCard event={event} index={index} isLast={index === events.length - 1} />
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import api from './api'
+import { streamRequest } from './sseClient'
 
 export const chatService = {
   createSession: async (title = null, type = 'CHAT') => {
@@ -19,11 +20,14 @@ export const chatService = {
 
   sendMessage: async (sessionId, message, context = null) => {
     const res = await api.post(`/api/chat/sessions/${sessionId}/ask`, {
-      question: message,  
-      context: context   
+      question: message,
+      context: context
     })
     return res.data
   },
+
+  streamMessage: (sessionId, message, handlers, context = null) =>
+    streamRequest(`/api/chat/sessions/${sessionId}/ask/stream`, { question: message, context }, handlers),
 
   sendTimelineMessage: async (sessionId, message, context = null) => {
     const res = await api.post(`/api/chat/sessions/${sessionId}/timeline`, {

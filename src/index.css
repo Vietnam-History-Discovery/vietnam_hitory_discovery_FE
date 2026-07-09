@@ -63,3 +63,17 @@ body {
 .animate-message-in {
   animation: message-in 0.25s ease-out;
 }
+
+@keyframes timeline-event-in {
+  from {
+    opacity: 0;
+    transform: translateX(var(--tl-slide, 16px)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+.animate-timeline-event-in {
+  animation: timeline-event-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}

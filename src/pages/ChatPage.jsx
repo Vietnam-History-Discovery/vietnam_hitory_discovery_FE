@@ -102,6 +102,7 @@ export default function ChatPage() {
   const [sending, setSending] = useState(false)
   const [suggestions, setSuggestions] = useState(null)
   const [sessionTitle, setSessionTitle] = useState('')
+  const [streamingMessageId, setStreamingMessageId] = useState(null)
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId
@@ -114,7 +115,6 @@ export default function ChatPage() {
     setInput('')
     setSending(true)
     sendingRef.current = true
-    let optimisticUser = null
     let sessionId = activeSessionId
 
     try {
@@ -128,55 +128,56 @@ export default function ChatPage() {
         queryClient.invalidateQueries({ queryKey: ['chat-sessions'] })
       }
 
-      optimisticUser = {
+      const optimisticUser = {
         id: `local-user-${Date.now()}`,
         sessionId,
         role: 'user',
         content: trimmed,
         clientCreatedAt: new Date().toISOString(),
       }
-
-      if (activeSessionIdRef.current === sessionId) {
-        setMessages((prev) => [...prev, optimisticUser])
-      }
-
-      const data = await chatService.sendMessage(sessionId, trimmed)
+      const assistantId = `local-assistant-${Date.now()}`
 
       if (activeSessionIdRef.current === sessionId) {
         setMessages((prev) => [
           ...prev,
-          {
-            id: `local-assistant-${Date.now()}`,
-            sessionId,
-            role: 'assistant',
-            content: data.answer ?? 'Không nhận được phản hồi.',
-            clientCreatedAt: new Date().toISOString(),
-          },
+          optimisticUser,
+          { id: assistantId, sessionId, role: 'assistant', content: '', clientCreatedAt: new Date().toISOString() },
         ])
+        setStreamingMessageId(assistantId)
       }
 
-      const s = extractSuggestions(data)
-      if (s && activeSessionIdRef.current === sessionId) setSuggestions(s)
+      const clearStreaming = () => {
+        setStreamingMessageId((current) => (current === assistantId ? null : current))
+      }
 
-      // Refresh sidebar to show updated lastMessage
-      queryClient.invalidateQueries({ queryKey: ['chat-sessions'] })
+      await chatService.streamMessage(sessionId, trimmed, {
+        onMeta: (meta) => {
+          const s = extractSuggestions(meta)
+          if (s && activeSessionIdRef.current === sessionId) setSuggestions(s)
+        },
+        onDelta: (deltaText) => {
+          if (activeSessionIdRef.current !== sessionId) return
+          setMessages((prev) => prev.map((m) => (
+            m.id === assistantId ? { ...m, content: m.content + deltaText } : m
+          )))
+        },
+        onDone: () => {
+          if (activeSessionIdRef.current === sessionId) clearStreaming()
+          queryClient.invalidateQueries({ queryKey: ['chat-sessions'] })
+        },
+        onError: () => {
+          if (activeSessionIdRef.current !== sessionId) return
+          clearStreaming()
+          setMessages((prev) => prev.map((m) => (
+            m.id === assistantId && !m.content
+              ? { ...m, content: 'Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.' }
+              : m
+          )))
+        },
+      })
     } catch {
-      // Roll back optimistic message and show error
-      if (activeSessionIdRef.current === sessionId) {
-        if (optimisticUser) {
-          setMessages((prev) => prev.filter((m) => m.id !== optimisticUser.id))
-        }
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `local-error-${Date.now()}`,
-            sessionId,
-            role: 'assistant',
-            content: 'Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.',
-            clientCreatedAt: new Date().toISOString(),
-          },
-        ])
-      }
+      // onError already updated the UI; this just prevents an unhandled rejection
+      // from fetchEventSource's onerror re-throw.
     } finally {
       setSending(false)
       sendingRef.current = false
@@ -256,6 +257,7 @@ export default function ChatPage() {
       <ChatWindow
         messages={messages}
         sending={sending}
+        streamingMessageId={streamingMessageId}
         sessionTitle={sessionTitle}
         input={input}
         onInputChange={setInput}
