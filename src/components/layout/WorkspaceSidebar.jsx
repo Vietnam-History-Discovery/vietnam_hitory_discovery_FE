@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Trash2, Clock, ChevronDown, Plus } from 'lucide-react'
+import { Trash2, Clock, MessageSquare, ChevronDown, Plus } from 'lucide-react'
 import chatService from '../../services/chatService'
 
 function relativeTime(dateStr) {
@@ -52,6 +52,30 @@ function SessionRow({ session, isActive, isDeleting, onSelect, onDelete }) {
   )
 }
 
+function AccordionHeader({ icon: Icon, label, open, onToggle, onCreate, createTitle }) {
+  return (
+    <div className="flex items-center justify-between px-4 py-3 border-b border-surface2 shrink-0">
+      <button
+        onClick={onToggle}
+        className="flex-1 flex items-center gap-1.5 text-[10px] uppercase tracking-widest font-medium text-gray-400 hover:text-gray-200 transition-colors"
+      >
+        <Icon className="w-3 h-3" />
+        {label}
+        <ChevronDown
+          className={`w-3.5 h-3.5 ml-auto transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+        />
+      </button>
+      <button
+        onClick={onCreate}
+        title={createTitle}
+        className="w-7 h-7 ml-2 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 flex items-center justify-center text-primary transition-colors shrink-0"
+      >
+        <Plus className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  )
+}
+
 function SessionList({ sessions, isLoading, emptyLabel, activeSessionId, deletingIds, onSelect, onDelete }) {
   if (isLoading) {
     return (
@@ -85,12 +109,14 @@ export default function WorkspaceSidebar({
   onNewTimeline,
 }) {
   const queryClient = useQueryClient()
+  const [chatOpen, setChatOpen] = useState(() => activeType === 'CHAT')
   const [timelineOpen, setTimelineOpen] = useState(() => activeType === 'TIMELINE')
   const [deletingIds, setDeletingIds] = useState(() => new Set())
 
   const { data: chatSessions = [], isLoading: chatLoading } = useQuery({
     queryKey: ['chat-sessions'],
     queryFn: () => chatService.getSessions('CHAT'),
+    enabled: chatOpen,
   })
 
   const { data: timelineSessions = [], isLoading: timelineLoading } = useQuery({
@@ -137,69 +163,57 @@ export default function WorkspaceSidebar({
 
   return (
     <div className="w-64 bg-surface flex flex-col border-r border-surface2 shrink-0 h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-4 border-b border-surface2 shrink-0">
-        <h2 className="text-[10px] text-gray-500 uppercase tracking-widest font-medium">
-          Lịch sử trò chuyện
-        </h2>
-        <button
-          onClick={onNewChat}
-          title="Cuộc trò chuyện mới"
-          className="w-7 h-7 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 flex items-center justify-center text-primary transition-colors"
-        >
-          <Plus className="w-3.5 h-3.5" />
-        </button>
-      </div>
-
-      {/* Chat + Timeline lists */}
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="py-1">
-          <SessionList
-            sessions={chatSessions}
-            isLoading={chatLoading}
-            emptyLabel="Chưa có cuộc trò chuyện nào"
-            activeSessionId={activeType === 'CHAT' ? activeSessionId : null}
-            deletingIds={deletingIds}
-            onSelect={(id) => onSelectSession(id, 'CHAT')}
-            onDelete={(e, session) => handleDelete(e, session, 'CHAT')}
+        {/* Chat accordion */}
+        <div>
+          <AccordionHeader
+            icon={MessageSquare}
+            label="Lịch sử trò chuyện"
+            open={chatOpen}
+            onToggle={() => setChatOpen((open) => !open)}
+            onCreate={onNewChat}
+            createTitle="Cuộc trò chuyện mới"
           />
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-out"
+            style={{ gridTemplateRows: chatOpen ? '1fr' : '0fr' }}
+          >
+            <div className="overflow-hidden">
+              <div className="py-1">
+                <SessionList
+                  sessions={chatSessions}
+                  isLoading={chatLoading}
+                  emptyLabel="Chưa có cuộc trò chuyện nào"
+                  activeSessionId={activeType === 'CHAT' ? activeSessionId : null}
+                  deletingIds={deletingIds}
+                  onSelect={(id) => onSelectSession(id, 'CHAT')}
+                  onDelete={(e, session) => handleDelete(e, session, 'CHAT')}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Timeline accordion */}
         <div className="border-t border-surface2">
-          <button
-            onClick={() => setTimelineOpen((open) => !open)}
-            className="w-full flex items-center justify-between px-4 py-3 text-[10px] uppercase tracking-widest font-medium text-gray-400 hover:text-gray-200 hover:bg-surface2/60 transition-colors"
-          >
-            <span className="flex items-center gap-1.5">
-              <Clock className="w-3 h-3" />
-              Timeline
-            </span>
-            <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform duration-200 ${timelineOpen ? 'rotate-180' : ''}`}
-            />
-          </button>
-
+          <AccordionHeader
+            icon={Clock}
+            label="Dòng thời gian"
+            open={timelineOpen}
+            onToggle={() => setTimelineOpen((open) => !open)}
+            onCreate={onNewTimeline}
+            createTitle="Dòng thời gian mới"
+          />
           <div
             className="grid transition-[grid-template-rows] duration-200 ease-out"
             style={{ gridTemplateRows: timelineOpen ? '1fr' : '0fr' }}
           >
             <div className="overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-2">
-                <span className="text-[10px] text-gray-600">Dòng thời gian</span>
-                <button
-                  onClick={onNewTimeline}
-                  title="Timeline mới"
-                  className="w-6 h-6 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 flex items-center justify-center text-primary transition-colors"
-                >
-                  <Plus className="w-3 h-3" />
-                </button>
-              </div>
-              <div className="pb-1">
+              <div className="py-1">
                 <SessionList
                   sessions={timelineSessions}
                   isLoading={timelineLoading}
-                  emptyLabel="Chưa có timeline nào"
+                  emptyLabel="Chưa có dòng thời gian nào"
                   activeSessionId={activeType === 'TIMELINE' ? activeSessionId : null}
                   deletingIds={deletingIds}
                   onSelect={(id) => onSelectSession(id, 'TIMELINE')}

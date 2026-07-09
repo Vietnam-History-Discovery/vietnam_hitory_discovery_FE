@@ -1,11 +1,21 @@
 import { useState, useRef, useEffect } from 'react'
 import TimelineSnapshotCard from './TimelineSnapshotCard'
+import { useTypewriter } from '../../hooks/useTypewriter'
 
-function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot }) {
+function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot, stream = false }) {
   const isUser = role === 'USER' || role === 'user'
+  const { displayed, done } = useTypewriter(content, { enabled: stream && !isUser })
+  const shownText = stream && !isUser ? displayed : content
+  const rootRef = useRef(null)
+
+  useEffect(() => {
+    if (stream && !isUser && !done) {
+      rootRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [displayed, stream, isUser, done])
 
   return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div ref={rootRef} className={`flex gap-3 animate-message-in ${isUser ? 'flex-row-reverse' : ''}`}>
       {!isUser && (
         <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs shrink-0 mt-0.5">
           ◈
@@ -19,10 +29,13 @@ function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot 
               : 'bg-surface2 text-gray-200 rounded-bl-sm border border-surface2/80'
           }`}
         >
-          {content}
+          {shownText}
+          {stream && !isUser && !done && (
+            <span className="inline-block w-1.5 h-4 bg-primary/70 ml-0.5 align-middle animate-pulse" />
+          )}
         </div>
-        {!isUser && timeline && (
-          <div className="mt-1 w-full max-w-xs">
+        {!isUser && timeline && (!stream || done) && (
+          <div className="mt-1 w-full max-w-xs animate-message-in">
             <TimelineSnapshotCard
               snapshot={timeline}
               createdAt={createdAt}
@@ -38,7 +51,7 @@ function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot 
 
 function ThinkingBubble() {
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-3 animate-message-in">
       <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs shrink-0 mt-0.5">
         ◈
       </div>
@@ -112,6 +125,7 @@ export default function TimelineChatPanel({
             timeline={msg.timeline}
             createdAt={msg.createdAt}
             onSelectSnapshot={onSelectSnapshot}
+            stream={typeof msg.id === 'string' && msg.id.startsWith('local-assistant-')}
           />
         ))}
         {sending && <ThinkingBubble />}

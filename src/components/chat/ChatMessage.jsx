@@ -1,11 +1,22 @@
+import { useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useTypewriter } from '../../hooks/useTypewriter'
 
-export default function ChatMessage({ role, content }) {
+export default function ChatMessage({ role, content, stream = false }) {
   const isUser = role === 'user' || role === 'USER'
+  const { displayed, done } = useTypewriter(content, { enabled: stream && !isUser })
+  const showMarkdown = isUser || !stream || done
+  const rootRef = useRef(null)
+
+  useEffect(() => {
+    if (stream && !isUser && !done) {
+      rootRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [displayed, stream, isUser, done])
 
   return (
-    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div ref={rootRef} className={`flex gap-3 animate-message-in ${isUser ? 'flex-row-reverse' : ''}`}>
       {!isUser && (
         <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs shrink-0 mt-0.5">
           ✦
@@ -26,6 +37,11 @@ export default function ChatMessage({ role, content }) {
         >
           {isUser ? (
             content
+          ) : !showMarkdown ? (
+            <span>
+              {displayed}
+              <span className="inline-block w-1.5 h-4 bg-primary/70 ml-0.5 align-middle animate-pulse" />
+            </span>
           ) : (
             <ReactMarkdown
               remarkPlugins={[remarkGfm]}

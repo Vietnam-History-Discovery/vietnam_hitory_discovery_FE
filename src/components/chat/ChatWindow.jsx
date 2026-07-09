@@ -11,7 +11,7 @@ const SUGGESTED_QUESTIONS = [
 
 function ThinkingBubble() {
   return (
-    <div className="flex gap-3">
+    <div className="flex gap-3 animate-message-in">
       <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs shrink-0 mt-0.5">
         ✦
       </div>
@@ -81,7 +81,12 @@ export default function ChatWindow({
         ) : (
           <div className="space-y-5 max-w-3xl mx-auto">
             {messages.map((msg, i) => (
-              <ChatMessage key={i} role={msg.role} content={msg.content} />
+              <ChatMessage
+                key={msg.id || i}
+                role={msg.role}
+                content={msg.content}
+                stream={typeof msg.id === 'string' && msg.id.startsWith('local-assistant-')}
+              />
             ))}
             {sending && <ThinkingBubble />}
             <div ref={bottomRef} />
