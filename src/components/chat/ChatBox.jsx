@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from 'react'
 import { askQuestion, getSessionMessages } from '../../services/chatService'
+import { Sparkles, MessageSquare } from 'lucide-react'
 
 function getSuggestions(dynastyName) {
   return [
-    `Triều đại ${dynastyName} được thành lập như thế nào?`,
-    `Các nhân vật nổi bật của ${dynastyName}?`,
-    `${dynastyName} đã kết thúc như thế nào?`,
+    `Ai là nhân vật quan trọng nhất của ${dynastyName}?`,
+    `Vì sao kinh đô lại được đặt ở đó?`,
+    `Sự kiện nào đánh dấu bước ngoặt của ${dynastyName}?`,
   ]
 }
 
-// Normalise whatever shape the API returns for the assistant's answer
 function extractAnswer(data) {
   return (
     data?.answer ??
@@ -17,19 +17,33 @@ function extractAnswer(data) {
     data?.response ??
     data?.message ??
     data?.text ??
-    'No response received.'
+    'Không nhận được phản hồi.'
   )
 }
 
 function MessageBubble({ role, content }) {
+  if (!content || !content.trim()) return null
+
   const isUser = role === 'USER' || role === 'user'
+  const isError = role === 'error'
+
+  if (isError) {
+    return (
+      <div className="flex justify-start">
+        <div className="max-w-[92%] rounded-lg px-3 py-2 text-xs leading-relaxed bg-vermilion/15 border border-vermilion text-[#e0a394] font-sans">
+          {content}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
       <div
-        className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+        className={`max-w-[92%] rounded-lg px-3 py-2 text-xs leading-relaxed font-sans ${
           isUser
-            ? 'bg-primary text-gray-900 rounded-br-sm font-medium'
-            : 'bg-surface2 text-gray-200 rounded-bl-sm border border-surface2'
+            ? 'bg-primary text-[#1a1309] font-medium'
+            : 'bg-surface2 text-ink border border-gold-border'
         }`}
       >
         {content}
@@ -41,11 +55,11 @@ function MessageBubble({ role, content }) {
 function ThinkingBubble() {
   return (
     <div className="flex justify-start">
-      <div className="bg-surface2 border border-surface2 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1">
+      <div className="bg-surface2 border border-gold-border rounded-lg px-3 py-2 flex items-center gap-1">
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce"
+            className="w-1.5 h-1.5 rounded-full bg-ink-muted animate-pulse"
             style={{ animationDelay: `${i * 0.15}s` }}
           />
         ))}
@@ -54,20 +68,30 @@ function ThinkingBubble() {
   )
 }
 
-export default function ChatBox({ sessionId, dynastyName, sessionLoading }) {
+export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLoading, pendingQuestion }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+  const chatContainerRef = useRef(null)
   const suggestions = getSuggestions(dynastyName)
+
+  const queueRef = useRef([])
 
   // Load message history when session is ready
   useEffect(() => {
     if (!sessionId) return
     getSessionMessages(sessionId)
       .then((msgs) => {
-        if (msgs.length > 0) setMessages(msgs)
+        if (msgs.length > 0) {
+          // Normalize messages from service format
+          const formatted = msgs.map(m => ({
+            role: m.role?.toLowerCase() === 'user' ? 'USER' : 'ASSISTANT',
+            content: m.content
+          }))
+          setMessages(formatted)
+        }
       })
       .catch(() => {})
   }, [sessionId])
@@ -79,14 +103,14 @@ export default function ChatBox({ sessionId, dynastyName, sessionLoading }) {
 
   const send = async (text) => {
     const trimmed = text.trim()
-    if (!trimmed || !sessionId || sending) return
+    if (!sessionId || !trimmed || sending) return
 
     setMessages((prev) => [...prev, { role: 'USER', content: trimmed }])
     setInput('')
     setSending(true)
 
     try {
-      const data = await askQuestion(sessionId, trimmed, dynastyName)
+      const data = await askQuestion(sessionId, trimmed, chatContext || dynastyName)
       setMessages((prev) => [
         ...prev,
         { role: 'ASSISTANT', content: extractAnswer(data) },
@@ -95,52 +119,107 @@ export default function ChatBox({ sessionId, dynastyName, sessionLoading }) {
       setMessages((prev) => [
         ...prev,
         {
-          role: 'ASSISTANT',
-          content: 'Unable to get a response. Please try again.',
+          role: 'error',
+          content: 'Không nhận được phản hồi từ Chronicle AI. Vui lòng thử lại.',
         },
       ])
     } finally {
       setSending(false)
-      inputRef.current?.focus()
+      setTimeout(() => inputRef.current?.focus(), 50)
     }
   }
+
+  // Handle incoming graph queries (queue buffer if chat is not connected)
+  useEffect(() => {
+    if (!pendingQuestion?.text) return
+
+    const triggerAsk = () => {
+      send(pendingQuestion.text)
+
+      // Apply Stitch flash highlight visual cue
+      if (chatContainerRef.current) {
+        try {
+          chatContainerRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+        } catch {
+          // ignore scroll errors
+        }
+        chatContainerRef.current.classList.add('flash-highlight')
+        const timer = setTimeout(() => {
+          chatContainerRef.current?.classList.remove('flash-highlight')
+        }, 1200)
+        return () => clearTimeout(timer)
+      }
+    }
+
+    if (!sessionId || sessionLoading) {
+      queueRef.current.push(triggerAsk)
+    } else {
+      triggerAsk()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingQuestion, sessionId, sessionLoading])
+
+  // Dispatch queued queries once session connects
+  useEffect(() => {
+    if (sessionId && !sessionLoading && queueRef.current.length > 0) {
+      const actions = [...queueRef.current]
+      queueRef.current = []
+      actions.forEach((act) => act())
+    }
+  }, [sessionId, sessionLoading])
 
   const handleSubmit = (e) => {
     e.preventDefault()
     send(input)
   }
 
+  // Demo Error simulation for testing empty/error visual state
+  const handleSimulateError = () => {
+    const text = input.trim() || 'Câu hỏi thử nghiệm'
+    setMessages((prev) => [...prev, { role: 'USER', content: text }])
+    setInput('')
+    setSending(true)
+    setTimeout(() => {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'error', content: 'Không nhận được phản hồi từ Chronicle AI. Vui lòng thử lại.' }
+      ])
+      setSending(false)
+    }, 800)
+  }
+
   const isEmpty = messages.length === 0 && !sending
 
   return (
-    <div className="h-full flex flex-col bg-surface border border-surface2 rounded-2xl overflow-hidden">
+    <div
+      ref={chatContainerRef}
+      className="h-full flex flex-col bg-surface border border-gold-border rounded-[6px] overflow-hidden transition-all duration-150"
+    >
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 py-4 border-b border-surface2 shrink-0">
-        <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-        <span className="text-sm font-semibold text-primary tracking-wide">
-          Chronicle AI
-        </span>
-        {sessionLoading && (
-          <span className="ml-auto text-xs text-gray-600 animate-pulse">
-            Connecting…
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-gold-border shrink-0">
+        <div className="w-[26px] h-[26px] border-[1.5px] border-primary rounded-[6px_2px_6px_2px] flex items-center justify-center text-primary select-none">
+          <Sparkles className="w-3.5 h-3.5" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-[13.5px] font-bold text-ink leading-tight">
+            Chronicle AI
           </span>
-        )}
-        {!sessionLoading && sessionId && (
-          <span className="ml-auto text-xs text-gray-700">Ready</span>
-        )}
+          <div className="text-[10px] text-ink-muted flex items-center gap-1.5 leading-none mt-0.5">
+            <span className={`w-1.5 h-1.5 rounded-full ${sessionLoading ? 'bg-ink-muted animate-pulse' : 'bg-green-400'}`} />
+            {sessionLoading ? 'Đang khởi tạo phiên…' : `Phiên trò chuyện: ${dynastyName}`}
+          </div>
+        </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
-        {/* Empty state */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0 bg-background/20">
         {isEmpty && (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center px-4">
-            <div className="w-10 h-10 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-lg">
-              ✦
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
+            <div className="w-9 h-9 border-[1.5px] border-primary rounded-[6px_2px_6px_2px] flex items-center justify-center text-primary select-none">
+              <MessageSquare className="w-4.5 h-4.5" />
             </div>
-            <p className="text-sm text-gray-500">
-              Ask anything about{' '}
-              <span className="text-gray-300">{dynastyName}</span>
+            <p className="text-xs text-ink-muted leading-relaxed font-sans">
+              Hỏi bất kỳ điều gì về <span className="text-primary font-semibold">{dynastyName}</span>
             </p>
           </div>
         )}
@@ -153,18 +232,18 @@ export default function ChatBox({ sessionId, dynastyName, sessionLoading }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* Suggestions (only when empty) */}
+      {/* Suggested Questions */}
       {isEmpty && !sessionLoading && (
         <div className="px-4 pb-3 shrink-0 space-y-1.5">
-          <p className="text-[10px] text-gray-700 uppercase tracking-widest px-1">
-            Suggested
+          <p className="text-[10px] text-ink-muted uppercase tracking-widest px-1 font-sans font-semibold">
+            Gợi ý câu hỏi
           </p>
           {suggestions.map((s) => (
             <button
               key={s}
               onClick={() => send(s)}
               disabled={!sessionId || sending}
-              className="w-full text-left text-xs text-gray-400 bg-surface2 hover:border-primary/30 hover:text-gray-200 border border-surface2 rounded-lg px-3 py-2 transition-colors disabled:opacity-40 leading-snug"
+              className="w-full text-left text-[12.5px] text-ink bg-transparent hover:border-primary hover:text-primary-bright border border-gold-border rounded-[6px] px-3 py-2 transition-colors disabled:opacity-40 leading-snug cursor-pointer focus:outline-none"
             >
               {s}
             </button>
@@ -172,42 +251,53 @@ export default function ChatBox({ sessionId, dynastyName, sessionLoading }) {
         </div>
       )}
 
+      {/* Error Demo Trigger (only shown in development) */}
+      {import.meta.env.DEV && (
+        <button
+          type="button"
+          onClick={handleSimulateError}
+          className="text-[10.5px] text-ink-muted hover:text-primary-bright underline bg-none border-none cursor-pointer self-start px-4 py-1 focus:outline-none font-sans"
+        >
+          Xem trạng thái lỗi (demo)
+        </button>
+      )}
+
       {/* Input */}
       <form
         onSubmit={handleSubmit}
-        className="flex items-center gap-2 px-4 py-3 border-t border-surface2 shrink-0"
+        className="flex items-center gap-2 px-3 py-2.5 border-t border-gold-border shrink-0"
       >
-        <input
+        <textarea
           ref={inputRef}
-          type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault()
+              handleSubmit(e)
+            }
+          }}
           disabled={!sessionId || sending}
           placeholder={
             sessionLoading
-              ? 'Connecting…'
+              ? 'Đang khởi tạo phiên…'
               : !sessionId
-              ? 'Unavailable'
-              : 'Ask a question…'
+              ? 'Chưa kết nối'
+              : `Hỏi về ${dynastyName}…`
           }
-          className="flex-1 bg-surface2 border border-surface2 focus:border-primary focus:ring-1 focus:ring-primary rounded-lg px-3 py-2 text-sm text-gray-100 placeholder-gray-600 focus:outline-none transition-colors disabled:opacity-50"
+          className="flex-1 bg-background border border-gold-border focus:border-primary focus:ring-0 rounded-[6px] px-3 py-2 text-[13px] text-ink placeholder-ink-muted focus:outline-none transition-colors disabled:opacity-50 resize-none h-[38px] max-h-[80px] font-sans"
+          rows={1}
         />
         <button
           type="submit"
           disabled={!sessionId || sending || !input.trim()}
-          className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg bg-primary hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed text-gray-900 transition-all"
-          aria-label="Send"
+          className="shrink-0 w-[38px] h-[38px] flex items-center justify-center rounded-[6px] bg-primary hover:bg-primary-bright disabled:bg-surface2 disabled:text-ink-muted disabled:opacity-40 disabled:cursor-not-allowed text-[#1a1309] transition-all cursor-pointer font-bold"
+          aria-label="Gửi câu hỏi"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 20 20"
-            fill="currentColor"
-            className="w-4 h-4"
-          >
-            <path d="M3.105 2.288a.75.75 0 0 0-.826.95l1.903 6.463H13.5a.75.75 0 0 1 0 1.5H4.182l-1.903 6.463a.75.75 0 0 0 .826.95 28.897 28.897 0 0 0 15.848-8.683.75.75 0 0 0 0-1.052A28.897 28.897 0 0 0 3.105 2.288Z" />
-          </svg>
+          ➤
         </button>
       </form>
     </div>
   )
 }
+

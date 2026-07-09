@@ -10,8 +10,15 @@ export const getDynastyByName = async (name) => {
   return response.data
 }
 
+export const getDynastyChatContext = async (name) => {
+  const response = await api.get(`/api/dynasties/${encodeURIComponent(name)}/chat-context`)
+  return response.data // { name, context }
+}
+
 export const getDynastyFromList = (dynasties, name) => {
   if (!dynasties || !name) return null
   const lower = name.toLowerCase()
   return dynasties.find((d) => d.name.toLowerCase() === lower) ?? null
 }
+
+

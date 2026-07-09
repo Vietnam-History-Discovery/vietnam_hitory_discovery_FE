@@ -1,18 +1,30 @@
 @import "tailwindcss";
 
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif:wght@500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
 @theme {
-  --color-primary: #C8A951;
-  --color-background: #0A0A0A;
-  --color-surface: #111111;
-  --color-surface2: #1A1A1A;
+  --color-primary: #c6a15b;
+  --color-primary-bright: #e8c77e;
+  --color-background: #150F0A;
+  --color-surface: #211809;
+  --color-surface2: #2c2013;
+  --color-vermilion: #8b3a2b;
+  --color-jade: #5c7a6b;
+  --color-ink: #ede3d0;
+  --color-ink-muted: #9c9080;
+  --color-gold-border: rgba(198, 161, 91, 0.18);
+  --color-gold-border-strong: rgba(198, 161, 91, 0.38);
+
+  --font-serif: 'Noto Serif', 'Georgia', serif;
+  --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace;
 }
 
 html,
 body {
   margin: 0;
   padding: 0;
-  background-color: #0A0A0A;
-  color: #f3f4f6;
+  background-color: var(--color-background);
+  color: var(--color-ink);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -29,3 +41,19 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+@keyframes flashGlow {
+  0%, 100% {
+    box-shadow: none;
+    border-color: var(--color-gold-border);
+  }
+  50% {
+    box-shadow: 0 0 0 2px var(--color-primary-bright), 0 0 24px rgba(232, 199, 126, 0.35);
+    border-color: var(--color-primary-bright);
+  }
+}
+.flash-highlight {
+  animation: flashGlow 1.2s ease-in-out;
+}
+
+

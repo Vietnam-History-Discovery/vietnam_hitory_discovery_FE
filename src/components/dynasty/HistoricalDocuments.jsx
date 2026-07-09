@@ -1,43 +1,40 @@
 import { useState } from 'react'
-
-const PREVIEW_LENGTH = 220
+import SectionHeader from './SectionHeader'
+import { getChunkSource, getChunkText, getChunkTitle } from './dynastyViewUtils'
 
 function DocumentCard({ chunk, index }) {
   const [expanded, setExpanded] = useState(false)
 
-  const rawText = typeof chunk === 'string' ? chunk : (chunk.text ?? '')
-  const title =
-    typeof chunk === 'object' && chunk.title
-      ? chunk.title
-      : `Historical Record ${index + 1}`
-  const source =
-    typeof chunk === 'object' && chunk.source ? chunk.source : 'DVSKTT'
-
-  const isLong = rawText.length > PREVIEW_LENGTH
-  const displayText =
-    isLong && !expanded ? rawText.slice(0, PREVIEW_LENGTH) + '…' : rawText
+  const rawText = getChunkText(chunk)
+  const title = getChunkTitle(chunk, index)
+  const source = getChunkSource(chunk)
 
   return (
-    <div className="bg-surface rounded-xl border border-surface2 hover:border-primary/20 p-5 transition-colors">
+    <div className="bg-surface border border-gold-border rounded-[3px] p-[16px_18px]">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-3">
-        <h3 className="text-sm font-semibold text-gray-200 leading-snug">{title}</h3>
-        <span className="shrink-0 text-[10px] font-bold tracking-widest text-primary bg-primary/10 border border-primary/20 rounded px-2 py-0.5 uppercase">
+      <div className="flex items-center justify-between gap-4 mb-2">
+        <h4 className="font-serif text-[14.5px] font-semibold text-ink leading-snug">{title}</h4>
+        <span className="shrink-0 text-[10.5px] text-primary border border-primary/35 rounded-full px-[9px] py-[2px] tracking-wider uppercase font-sans font-semibold">
           {source}
         </span>
       </div>
 
       {/* Text */}
-      <p className="text-sm text-gray-400 leading-relaxed">{displayText}</p>
+      <p
+        id={`doc-text-${index}`}
+        className={`text-[13.5px] text-ink-muted leading-[1.8] font-sans ${expanded ? '' : 'line-clamp-2'}`}
+      >
+        {rawText}
+      </p>
 
-      {isLong && (
-        <button
-          onClick={() => setExpanded((v) => !v)}
-          className="mt-3 text-xs text-primary hover:text-primary/80 transition-colors"
-        >
-          {expanded ? 'Show less ↑' : 'Show more ↓'}
-        </button>
-      )}
+      <button
+        onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
+        aria-controls={`doc-text-${index}`}
+        className="bg-none border-none text-primary hover:text-primary-bright text-[12.5px] font-bold cursor-pointer pt-2 font-sans focus:outline-none focus-visible:ring-1 focus-visible:ring-primary-bright"
+      >
+        {expanded ? 'Thu gọn' : 'Xem thêm'}
+      </button>
     </div>
   )
 }
@@ -46,13 +43,10 @@ export default function HistoricalDocuments({ chunks }) {
   if (!chunks?.length) return null
 
   return (
-    <section className="pb-12">
-      <h2 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-3">
-        <span className="w-1 h-5 rounded-full bg-primary" />
-        Historical Documents
-      </h2>
+    <section className="space-y-4">
+      <SectionHeader>Tư liệu lịch sử</SectionHeader>
 
-      <div className="space-y-4">
+      <div className="space-y-3">
         {chunks.map((chunk, i) => (
           <DocumentCard key={i} chunk={chunk} index={i} />
         ))}
@@ -60,3 +54,4 @@ export default function HistoricalDocuments({ chunks }) {
     </section>
   )
 }
+
