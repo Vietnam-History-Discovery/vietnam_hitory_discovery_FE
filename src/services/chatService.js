@@ -29,13 +29,8 @@ export const chatService = {
   streamMessage: (sessionId, message, handlers, context = null) =>
     streamRequest(`/api/chat/sessions/${sessionId}/ask/stream`, { question: message, context }, handlers),
 
-  sendTimelineMessage: async (sessionId, message, context = null) => {
-    const res = await api.post(`/api/chat/sessions/${sessionId}/timeline`, {
-      question: message,
-      context: context
-    })
-    return res.data
-  },
+  streamTimelineMessage: (sessionId, message, handlers, context = null) =>
+    streamRequest(`/api/chat/sessions/${sessionId}/timeline/stream`, { question: message, context }, handlers),
 
   getMessages: async (sessionId) => {
     const res = await api.get(`/api/chat/sessions/${sessionId}/messages`)

@@ -75,6 +75,7 @@ export default function TimelinePage() {
   const [sending, setSending] = useState(false)
   const [selectedSnapshot, setSelectedSnapshot] = useState(null)
   const [sessionTitle, setSessionTitle] = useState('')
+  const [streamingMessageId, setStreamingMessageId] = useState(null)
 
   useEffect(() => {
     activeSessionIdRef.current = activeSessionId
@@ -148,42 +149,52 @@ export default function TimelinePage() {
         content: trimmed,
         clientCreatedAt: new Date().toISOString(),
       }
+      const assistantId = `local-assistant-${Date.now()}`
 
-      if (activeSessionIdRef.current === sessionId) {
-        setMessages((prev) => [...prev, optimisticUser])
-      }
-
-      const data = await chatService.sendTimelineMessage(sessionId, trimmed)
-
-      if (activeSessionIdRef.current === sessionId) {
-        const assistantMsg = {
-          id: `local-assistant-${Date.now()}`,
-          sessionId,
-          role: 'assistant',
-          content: data.answer ?? 'Không nhận được phản hồi.',
-          timeline: data.timeline ?? null,
-          clientCreatedAt: new Date().toISOString(),
-        }
-        setMessages((prev) => [...prev, assistantMsg])
-        if (data.timeline) {
-          setSelectedSnapshot(data.timeline)
-        }
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['timeline-sessions'] })
-    } catch {
       if (activeSessionIdRef.current === sessionId) {
         setMessages((prev) => [
           ...prev,
-          {
-            id: `local-error-${Date.now()}`,
-            sessionId,
-            role: 'assistant',
-            content: 'Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.',
-            clientCreatedAt: new Date().toISOString(),
-          },
+          optimisticUser,
+          { id: assistantId, sessionId, role: 'assistant', content: '', timeline: null, clientCreatedAt: new Date().toISOString() },
         ])
+        setStreamingMessageId(assistantId)
       }
+
+      const clearStreaming = () => {
+        setStreamingMessageId((current) => (current === assistantId ? null : current))
+      }
+
+      await chatService.streamTimelineMessage(sessionId, trimmed, {
+        onEvent: (name, data) => {
+          if (name !== 'timeline' || activeSessionIdRef.current !== sessionId) return
+          setMessages((prev) => prev.map((m) => (
+            m.id === assistantId ? { ...m, timeline: data } : m
+          )))
+          setSelectedSnapshot(data)
+        },
+        onDelta: (deltaText) => {
+          if (activeSessionIdRef.current !== sessionId) return
+          setMessages((prev) => prev.map((m) => (
+            m.id === assistantId ? { ...m, content: m.content + deltaText } : m
+          )))
+        },
+        onDone: () => {
+          if (activeSessionIdRef.current === sessionId) clearStreaming()
+          queryClient.invalidateQueries({ queryKey: ['timeline-sessions'] })
+        },
+        onError: () => {
+          if (activeSessionIdRef.current !== sessionId) return
+          clearStreaming()
+          setMessages((prev) => prev.map((m) => (
+            m.id === assistantId && !m.content
+              ? { ...m, content: 'Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.' }
+              : m
+          )))
+        },
+      })
+    } catch {
+      // onError already updated the UI; this just prevents an unhandled rejection
+      // from fetchEventSource's onerror re-throw.
     } finally {
       setSending(false)
       sendingRef.current = false
@@ -208,6 +219,7 @@ export default function TimelinePage() {
       <TimelineChatPanel
         messages={messages}
         sending={sending}
+        streamingMessageId={streamingMessageId}
         onSend={handleSend}
         onSelectSnapshot={handleSelectSnapshot}
       />

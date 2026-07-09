@@ -1,25 +1,15 @@
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import TimelineSnapshotCard from './TimelineSnapshotCard'
-import { TypeAnimation } from 'react-type-animation'
 
-function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot, stream = false }) {
+function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot, isStreaming = false }) {
   const isUser = role === 'USER' || role === 'user'
-  const isStreaming = stream && !isUser
-  const [done, setDone] = useState(!isStreaming)
   const rootRef = useRef(null)
 
-  const sequence = useMemo(() => [content, () => setDone(true)], [content])
-
   useEffect(() => {
-    if (!isStreaming || done) return undefined
-    const node = rootRef.current
-    if (!node) return undefined
-    const observer = new MutationObserver(() => {
-      node.scrollIntoView({ block: 'nearest' })
-    })
-    observer.observe(node, { childList: true, characterData: true, subtree: true })
-    return () => observer.disconnect()
-  }, [isStreaming, done])
+    if (isStreaming) {
+      rootRef.current?.scrollIntoView({ block: 'nearest' })
+    }
+  }, [content, isStreaming])
 
   return (
     <div ref={rootRef} className={`flex gap-3 animate-message-in ${isUser ? 'flex-row-reverse' : ''}`}>
@@ -36,19 +26,26 @@ function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot,
               : 'bg-surface2 text-gray-200 rounded-bl-sm border border-surface2/80'
           }`}
         >
-          {isStreaming && !done ? (
-            <TypeAnimation
-              sequence={sequence}
-              wrapper="span"
-              speed={85}
-              cursor
-              repeat={0}
-            />
+          {!isUser && isStreaming && !content ? (
+            <span className="flex items-center gap-1.5 py-0.5">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s` }}
+                />
+              ))}
+            </span>
+          ) : !isUser && isStreaming ? (
+            <span>
+              {content}
+              <span className="inline-block w-1.5 h-4 bg-primary/70 ml-0.5 align-middle animate-pulse" />
+            </span>
           ) : (
             content
           )}
         </div>
-        {!isUser && timeline && (!isStreaming || done) && (
+        {!isUser && timeline && (
           <div className="mt-1 w-full max-w-xs animate-message-in">
             <TimelineSnapshotCard
               snapshot={timeline}
@@ -63,28 +60,10 @@ function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot,
   )
 }
 
-function ThinkingBubble() {
-  return (
-    <div className="flex gap-3 animate-message-in">
-      <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs shrink-0 mt-0.5">
-        ◈
-      </div>
-      <div className="bg-surface2 border border-surface2/80 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce"
-            style={{ animationDelay: `${i * 0.15}s` }}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export default function TimelineChatPanel({
   messages,
   sending,
+  streamingMessageId,
   onSend,
   onSelectSnapshot,
 }) {
@@ -139,10 +118,9 @@ export default function TimelineChatPanel({
             timeline={msg.timeline}
             createdAt={msg.createdAt}
             onSelectSnapshot={onSelectSnapshot}
-            stream={typeof msg.id === 'string' && msg.id.startsWith('local-assistant-')}
+            isStreaming={msg.id === streamingMessageId}
           />
         ))}
-        {sending && <ThinkingBubble />}
         <div ref={bottomRef} />
       </div>
 
