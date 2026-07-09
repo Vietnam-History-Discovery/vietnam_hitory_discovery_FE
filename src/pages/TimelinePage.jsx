@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '../components/layout/Navbar'
-import TimelineChatSidebar from '../components/timeline/TimelineChatSidebar'
+import WorkspaceSidebar from '../components/layout/WorkspaceSidebar'
 import TimelineVisualization from '../components/timeline/TimelineVisualization'
 import TimelineChatPanel from '../components/timeline/TimelineChatPanel'
 import chatService from '../services/chatService'
@@ -189,8 +189,8 @@ export default function TimelinePage() {
     navigate('/timeline')
   }, [navigate])
 
-  const handleSelectSession = useCallback((id) => {
-    navigate(`/timeline/${id}`)
+  const handleSelectSession = useCallback((id, type) => {
+    navigate(type === 'CHAT' ? `/chat/${id}` : `/timeline/${id}`)
   }, [navigate])
 
   return (
@@ -198,11 +198,13 @@ export default function TimelinePage() {
       <Navbar />
 
       <div className="flex-1 flex overflow-hidden min-h-0">
-        {/* Left: Timeline session sidebar */}
+        {/* Left: session sidebar */}
         <div className="hidden md:flex shrink-0">
-          <TimelineChatSidebar
+          <WorkspaceSidebar
             activeSessionId={activeSessionId}
+            activeType="TIMELINE"
             onSelectSession={handleSelectSession}
+            onNewChat={() => navigate('/chat')}
             onNewTimeline={handleNewTimeline}
           />
         </div>

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import Navbar from '../components/layout/Navbar'
-import ChatSidebar from '../components/chat/ChatSidebar'
+import WorkspaceSidebar from '../components/layout/WorkspaceSidebar'
 import ChatWindow from '../components/chat/ChatWindow'
 import RelatedSuggestions from '../components/chat/RelatedSuggestions'
 import chatService from '../services/chatService'
@@ -253,8 +253,8 @@ export default function ChatPage() {
     navigate('/chat')
   }
 
-  const handleSelectSession = (id) => {
-    navigate(`/chat/${id}`)
+  const handleSelectSession = (id, type) => {
+    navigate(type === 'TIMELINE' ? `/timeline/${id}` : `/chat/${id}`)
   }
 
   return (
@@ -264,10 +264,12 @@ export default function ChatPage() {
       <div className="flex-1 flex overflow-hidden min-h-0">
         {/* Left panel — hidden on mobile */}
         <div className="hidden md:flex shrink-0">
-          <ChatSidebar
+          <WorkspaceSidebar
             activeSessionId={activeSessionId}
+            activeType="CHAT"
             onSelectSession={handleSelectSession}
             onNewChat={handleNewChat}
+            onNewTimeline={() => navigate('/timeline')}
           />
         </div>
 
