@@ -9,28 +9,10 @@ const SUGGESTED_QUESTIONS = [
   'Nhà Lý được thành lập như thế nào?',
 ]
 
-function ThinkingBubble() {
-  return (
-    <div className="flex gap-3">
-      <div className="w-7 h-7 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xs shrink-0 mt-0.5">
-        ✦
-      </div>
-      <div className="bg-surface2 border border-surface2/80 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-1.5">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce"
-            style={{ animationDelay: `${i * 0.15}s` }}
-          />
-        ))}
-      </div>
-    </div>
-  )
-}
-
 export default function ChatWindow({
   messages,
   sending,
+  streamingMessageId,
   sessionTitle,
   input,
   onInputChange,
@@ -81,9 +63,13 @@ export default function ChatWindow({
         ) : (
           <div className="space-y-5 max-w-3xl mx-auto">
             {messages.map((msg, i) => (
-              <ChatMessage key={i} role={msg.role} content={msg.content} />
+              <ChatMessage
+                key={msg.id || i}
+                role={msg.role}
+                content={msg.content}
+                isStreaming={msg.id === streamingMessageId}
+              />
             ))}
-            {sending && <ThinkingBubble />}
             <div ref={bottomRef} />
           </div>
         )}

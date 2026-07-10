@@ -1,4 +1,5 @@
 import api from './api'
+import { streamRequest } from './sseClient'
 
 // Simple rule-based mock responder (identical logic to Stitch mock chat)
 const simulateAiReply = (question, context = null) => {
@@ -18,27 +19,29 @@ const simulateAiReply = (question, context = null) => {
 const mockSessions = {}
 
 export const chatService = {
-  createSession: async (title = null) => {
+  createSession: async (title = null, type = 'CHAT') => {
     try {
-      const res = await api.post('/api/chat/sessions', { title })
+      const res = await api.post('/api/chat/sessions', { title, type })
       return res.data 
     } catch (e) {
       console.warn("API createSession failed, using mock fallback:", e)
       const mockId = 'mock-session-' + Date.now()
       mockSessions[mockId] = []
-      return { id: mockId, title, createdAt: new Date().toISOString() }
+      return { id: mockId, title, type, createdAt: new Date().toISOString() }
     }
   },
 
-  getSessions: async () => {
+  getSessions: async (type = null) => {
     try {
-      const res = await api.get('/api/chat/sessions')
+      const params = type ? { type } : {}
+      const res = await api.get('/api/chat/sessions', { params })
       return res.data 
     } catch (e) {
       console.warn("API getSessions failed, returning mock fallback:", e)
       return Object.keys(mockSessions).map(id => ({
         id,
         title: 'Chronicle Session',
+        type: type || 'CHAT',
         createdAt: new Date().toISOString()
       }))
     }
@@ -77,6 +80,12 @@ export const chatService = {
     }
   },
 
+  streamMessage: (sessionId, message, handlers, context = null) =>
+    streamRequest(`/api/chat/sessions/${sessionId}/ask/stream`, { question: message, context }, handlers),
+
+  streamTimelineMessage: (sessionId, message, handlers, context = null) =>
+    streamRequest(`/api/chat/sessions/${sessionId}/timeline/stream`, { question: message, context }, handlers),
+
   getMessages: async (sessionId) => {
     try {
       const res = await api.get(`/api/chat/sessions/${sessionId}/messages`)
@@ -97,7 +106,6 @@ export const chatService = {
   },
 }
 
-// Named re-exports for all existing consumers
 export const createSession = chatService.createSession
 export const getSessions = chatService.getSessions
 export const getSessionMessages = chatService.getMessages

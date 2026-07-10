@@ -25,10 +25,9 @@ export default function ChatInput({ value, onChange, onSend, disabled }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={handleKeyDown}
-        disabled={disabled}
         placeholder="Hỏi về lịch sử Việt Nam..."
         rows={1}
-        className="flex-1 resize-none overflow-hidden bg-surface2 border border-surface2 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-600 focus:outline-none transition-colors disabled:opacity-50 leading-snug"
+        className="flex-1 resize-none overflow-hidden bg-surface2 border border-surface2 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl px-4 py-3 text-sm text-gray-100 placeholder-gray-600 focus:outline-none transition-colors leading-snug"
       />
       <button
         onClick={onSend}

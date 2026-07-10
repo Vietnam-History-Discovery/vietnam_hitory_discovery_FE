@@ -1,15 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
-import ChatWindow from '../components/chat/ChatWindow'
-import RelatedSuggestions from '../components/chat/RelatedSuggestions'
+import TimelineVisualization from '../components/timeline/TimelineVisualization'
+import TimelineChatPanel from '../components/timeline/TimelineChatPanel'
 import chatService from '../services/chatService'
-
-function extractSuggestions(data) {
-  const entities = data.entities ?? []
-  if (!entities.length) return null
-  return { dynasties: entities, persons: [], followUps: [] }
-}
 
 function messageTimestamp(message) {
   const value = message.createdAt ?? message.clientCreatedAt
@@ -30,77 +24,56 @@ function compareMessages(a, b) {
     const sequenceDiff = Number(a.sequence) - Number(b.sequence)
     if (sequenceDiff !== 0) return sequenceDiff
   }
-
   if (hasSequence(a)) return -1
   if (hasSequence(b)) return 1
-
   const timeDiff = messageTimestamp(a) - messageTimestamp(b)
   if (timeDiff !== 0) return timeDiff
-
-  if (isUserMessage(a) !== isUserMessage(b)) {
-    return isUserMessage(a) ? -1 : 1
-  }
-
+  if (isUserMessage(a) !== isUserMessage(b)) return isUserMessage(a) ? -1 : 1
   return String(a.id ?? '').localeCompare(String(b.id ?? ''))
 }
 
 function sortLegacyMessages(messages) {
   const users = messages.filter(isUserMessage).sort(compareMessages)
-  const assistants = messages.filter((message) => !isUserMessage(message)).sort(compareMessages)
+  const assistants = messages.filter((m) => !isUserMessage(m)).sort(compareMessages)
   const sorted = []
   const maxLength = Math.max(users.length, assistants.length)
-
   for (let i = 0; i < maxLength; i += 1) {
     if (users[i]) sorted.push(users[i])
     if (assistants[i]) sorted.push(assistants[i])
   }
-
   return sorted
 }
 
 function sortMessages(messages = []) {
   const sequenced = messages.filter(hasSequence).sort(compareMessages)
-  const legacy = messages.filter((message) => !hasSequence(message))
+  const legacy = messages.filter((m) => !hasSequence(m))
   return [...sequenced, ...sortLegacyMessages(legacy)]
-}
-
-function messageKey(message) {
-  return [
-    String(message.role ?? '').toLowerCase(),
-    String(message.content ?? '').trim(),
-    message.createdAt ?? '',
-  ].join('|')
 }
 
 function mergeMessages(currentMessages, loadedMessages, sessionId) {
   const merged = [...loadedMessages]
-  const loadedKeys = new Set(loadedMessages.map(messageKey))
-
-  currentMessages.forEach((message) => {
-    if (!String(message.id ?? '').startsWith('local-')) return
-    if (message.sessionId !== sessionId) return
-    if (loadedKeys.has(messageKey(message))) return
-    merged.push(message)
+  const loadedKeys = new Set(loadedMessages.map((m) => [String(m.role ?? '').toLowerCase(), String(m.content ?? '').trim(), m.createdAt ?? ''].join('|')))
+  currentMessages.forEach((m) => {
+    if (!String(m.id ?? '').startsWith('local-')) return
+    if (m.sessionId !== sessionId) return
+    if (loadedKeys.has([String(m.role ?? '').toLowerCase(), String(m.content ?? '').trim(), m.createdAt ?? ''].join('|'))) return
+    merged.push(m)
   })
-
   return sortMessages(merged)
 }
 
-export default function ChatPage() {
+export default function TimelinePage() {
   const { sessionId: urlSessionId } = useParams()
   const navigate = useNavigate()
-  const location = useLocation()
   const queryClient = useQueryClient()
   const loadRequestRef = useRef(0)
   const sendingRef = useRef(false)
-  const initialQuestionRef = useRef(null)
   const activeSessionIdRef = useRef(null)
 
   const activeSessionId = urlSessionId ?? null
   const [messages, setMessages] = useState([])
-  const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
-  const [suggestions, setSuggestions] = useState(null)
+  const [selectedSnapshot, setSelectedSnapshot] = useState(null)
   const [sessionTitle, setSessionTitle] = useState('')
   const [streamingMessageId, setStreamingMessageId] = useState(null)
 
@@ -108,24 +81,65 @@ export default function ChatPage() {
     activeSessionIdRef.current = activeSessionId
   }, [activeSessionId])
 
+  useEffect(() => {
+    sendingRef.current = sending
+  }, [sending])
+
+  useEffect(() => {
+    if (activeSessionId) return undefined
+
+    let ignore = false
+    queueMicrotask(() => {
+      if (ignore) return
+      setMessages([])
+      setSelectedSnapshot(null)
+      setSessionTitle('')
+    })
+
+    return () => {
+      ignore = true
+    }
+  }, [activeSessionId])
+
+  useEffect(() => {
+    if (!activeSessionId) return undefined
+
+    const requestId = ++loadRequestRef.current
+
+    chatService.getSession(activeSessionId)
+      .then((data) => {
+        if (requestId !== loadRequestRef.current) return
+        const merged = mergeMessages([], data.messages ?? [], activeSessionId)
+        setMessages(merged)
+        const title = data.session?.title ?? data.title
+        if (title) setSessionTitle(title)
+
+        const lastTimelineMsg = [...merged].reverse().find(
+          (m) => !isUserMessage(m) && m.timeline
+        )
+        if (lastTimelineMsg) {
+          setSelectedSnapshot(lastTimelineMsg.timeline)
+        }
+      })
+      .catch(() => {})
+  }, [activeSessionId])
+
   const handleSend = useCallback(async (text) => {
-    // Accept explicit text (from suggestion buttons) or fall back to input state
-    const trimmed = (typeof text === 'string' ? text : input).trim()
+    const trimmed = text.trim()
     if (!trimmed || sendingRef.current) return
-    setInput('')
     setSending(true)
     sendingRef.current = true
+
     let sessionId = activeSessionId
 
     try {
-      // Create session before first message if none exists
       if (!sessionId) {
-        const newSession = await chatService.createSession(trimmed.slice(0, 50))
+        const newSession = await chatService.createSession(trimmed.slice(0, 50), 'TIMELINE')
         sessionId = newSession.id
         if (!sessionTitle) setSessionTitle(newSession.title ?? trimmed.slice(0, 60))
-        navigate(`/chat/${sessionId}`, { replace: true })
+        navigate(`/timeline/${sessionId}`, { replace: true })
         activeSessionIdRef.current = sessionId
-        queryClient.invalidateQueries({ queryKey: ['chat-sessions'] })
+        queryClient.invalidateQueries({ queryKey: ['timeline-sessions'] })
       }
 
       const optimisticUser = {
@@ -141,7 +155,7 @@ export default function ChatPage() {
         setMessages((prev) => [
           ...prev,
           optimisticUser,
-          { id: assistantId, sessionId, role: 'assistant', content: '', clientCreatedAt: new Date().toISOString() },
+          { id: assistantId, sessionId, role: 'assistant', content: '', timeline: null, clientCreatedAt: new Date().toISOString() },
         ])
         setStreamingMessageId(assistantId)
       }
@@ -150,10 +164,13 @@ export default function ChatPage() {
         setStreamingMessageId((current) => (current === assistantId ? null : current))
       }
 
-      await chatService.streamMessage(sessionId, trimmed, {
-        onMeta: (meta) => {
-          const s = extractSuggestions(meta)
-          if (s && activeSessionIdRef.current === sessionId) setSuggestions(s)
+      await chatService.streamTimelineMessage(sessionId, trimmed, {
+        onEvent: (name, data) => {
+          if (name !== 'timeline' || activeSessionIdRef.current !== sessionId) return
+          setMessages((prev) => prev.map((m) => (
+            m.id === assistantId ? { ...m, timeline: data } : m
+          )))
+          setSelectedSnapshot(data)
         },
         onDelta: (deltaText) => {
           if (activeSessionIdRef.current !== sessionId) return
@@ -163,7 +180,7 @@ export default function ChatPage() {
         },
         onDone: () => {
           if (activeSessionIdRef.current === sessionId) clearStreaming()
-          queryClient.invalidateQueries({ queryKey: ['chat-sessions'] })
+          queryClient.invalidateQueries({ queryKey: ['timeline-sessions'] })
         },
         onError: () => {
           if (activeSessionIdRef.current !== sessionId) return
@@ -182,92 +199,30 @@ export default function ChatPage() {
       setSending(false)
       sendingRef.current = false
     }
-  }, [activeSessionId, input, navigate, queryClient, sessionTitle])
+  }, [activeSessionId, navigate, queryClient, sessionTitle])
 
-  useEffect(() => {
-    sendingRef.current = sending
-  }, [sending])
-
-  useEffect(() => {
-    if (activeSessionId) return undefined
-
-    let ignore = false
-    queueMicrotask(() => {
-      if (ignore) return
-      setMessages([])
-      setSuggestions(null)
-      setSessionTitle('')
-    })
-
-    return () => {
-      ignore = true
+  const handleSelectSnapshot = useCallback((snapshot) => {
+    if (snapshot) {
+      setSelectedSnapshot(snapshot)
     }
-  }, [activeSessionId])
-
-  // Load session data (title + messages) whenever active session changes
-  useEffect(() => {
-    const requestId = ++loadRequestRef.current
-
-    if (!activeSessionId) {
-      return undefined
-    }
-
-    let ignore = false
-    queueMicrotask(() => {
-      if (ignore) return
-      setMessages([])
-      setSuggestions(null)
-      setSessionTitle('')
-    })
-
-    chatService.getSession(activeSessionId)
-      .then((data) => {
-        if (requestId !== loadRequestRef.current) return
-
-        setMessages((current) => mergeMessages(current, data.messages ?? [], activeSessionId))
-        const title = data.session?.title ?? data.title
-        if (title) setSessionTitle(title)
-      })
-      .catch(() => {})
-
-    return () => {
-      ignore = true
-    }
-  }, [activeSessionId])
-
-  useEffect(() => {
-    const initialQuestion = location.state?.initialQuestion
-    if (!activeSessionId || !initialQuestion) return
-
-    initialQuestionRef.current = initialQuestion
-    navigate(location.pathname, { replace: true, state: null })
-  }, [activeSessionId, location.pathname, location.state, navigate])
-
-  useEffect(() => {
-    if (!activeSessionId || !initialQuestionRef.current || sendingRef.current) return
-
-    const initialQuestion = initialQuestionRef.current
-    initialQuestionRef.current = null
-    handleSend(initialQuestion)
-  }, [activeSessionId, handleSend])
+  }, [])
 
   return (
     <>
-      {/* Center panel */}
-      <ChatWindow
+      {/* Center: Timeline visualization */}
+      <TimelineVisualization
+        snapshot={selectedSnapshot}
+        loading={sending && !selectedSnapshot}
+      />
+
+      {/* Right: Timeline chat panel */}
+      <TimelineChatPanel
         messages={messages}
         sending={sending}
         streamingMessageId={streamingMessageId}
-        sessionTitle={sessionTitle}
-        input={input}
-        onInputChange={setInput}
         onSend={handleSend}
+        onSelectSnapshot={handleSelectSnapshot}
       />
-
-      {/* Right panel — hidden on tablet and below */}
-      <div className="hidden lg:flex shrink-0">
-        <RelatedSuggestions suggestions={suggestions} onFollowUp={handleSend} />
-      </div>
     </>
   )
 }

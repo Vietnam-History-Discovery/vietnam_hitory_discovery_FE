@@ -6,7 +6,9 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import HomePage from './pages/HomePage'
 import DynastyDetailPage from './pages/DynastyDetailPage'
+import WorkspaceLayout from './pages/WorkspaceLayout'
 import ChatPage from './pages/ChatPage'
+import TimelinePage from './pages/TimelinePage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,21 +41,17 @@ export default function App() {
               }
             />
             <Route
-              path="/chat"
               element={
                 <ProtectedRoute>
-                  <ChatPage />
+                  <WorkspaceLayout />
                 </ProtectedRoute>
               }
-            />
-            <Route
-              path="/chat/:sessionId"
-              element={
-                <ProtectedRoute>
-                  <ChatPage />
-                </ProtectedRoute>
-              }
-            />
+            >
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/chat/:sessionId" element={<ChatPage />} />
+              <Route path="/timeline" element={<TimelinePage />} />
+              <Route path="/timeline/:sessionId" element={<TimelinePage />} />
+            </Route>
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
