@@ -1,7 +1,5 @@
 import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, X } from 'lucide-react'
-import { createArticle, updateArticle } from '../../services/articleService'
 import { ERA_TAB_ORDER, ERA_DISPLAY } from '../../constants/articles'
 
 const inputClass =
@@ -52,26 +50,11 @@ function computeReadingStats(content) {
   return { wordCount, estimatedReadMinutes }
 }
 
-export default function ArticleForm({ article, onDone, onCancel }) {
-  const isEdit = !!article
+// Pure form UI — knows nothing about the network. Serializes its fields into the
+// ArticleDetailDto shape and hands it to `onSubmit`; the caller owns the actual save
+// (see `useArticleSave`) and feeds back `isEdit`/`isSaving`/`error`/`successMessage`.
+export default function ArticleForm({ article, isEdit, isSaving, error, successMessage, onSubmit, onCancel }) {
   const [form, setForm] = useState(() => toFormState(article))
-  const [error, setError] = useState('')
-  const queryClient = useQueryClient()
-
-  const invalidateAndFinish = () => {
-    queryClient.invalidateQueries({ queryKey: ['articles'] })
-    queryClient.invalidateQueries({ queryKey: ['article-eras'] })
-    queryClient.invalidateQueries({ queryKey: ['admin-articles'] })
-    onDone()
-  }
-
-  const mutation = useMutation({
-    mutationFn: (dto) => (isEdit ? updateArticle(article.slug, dto) : createArticle(dto)),
-    onSuccess: invalidateAndFinish,
-    onError: (err) => {
-      setError(err.response?.data?.error || 'Đã xảy ra lỗi. Vui lòng thử lại.')
-    },
-  })
 
   const updateField = (field, value) => setForm((f) => ({ ...f, [field]: value }))
 
@@ -95,7 +78,6 @@ export default function ArticleForm({ article, onDone, onCancel }) {
 
   const handleSubmit = (e) => {
     e.preventDefault()
-    setError('')
 
     const { wordCount, estimatedReadMinutes } = computeReadingStats(form.content)
     const dto = {
@@ -120,7 +102,7 @@ export default function ArticleForm({ article, onDone, onCancel }) {
         .filter(Boolean),
     }
 
-    mutation.mutate(dto)
+    onSubmit(dto)
   }
 
   const { wordCount, estimatedReadMinutes } = computeReadingStats(form.content)
@@ -130,12 +112,6 @@ export default function ArticleForm({ article, onDone, onCancel }) {
       <h2 className="text-lg font-semibold text-gray-100 mb-6">
         {isEdit ? 'Chỉnh sửa bài viết' : 'Bài viết mới'}
       </h2>
-
-      {error && (
-        <div className="bg-red-950/50 border border-red-800 text-red-400 rounded-lg px-4 py-3 mb-5 text-sm">
-          {error}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -290,13 +266,25 @@ export default function ArticleForm({ article, onDone, onCancel }) {
           </div>
         </div>
 
+        {error && (
+          <div className="bg-red-950/50 border border-red-800 text-red-400 rounded-lg px-4 py-3 text-sm">
+            {error}
+          </div>
+        )}
+
+        {successMessage && (
+          <div className="bg-green-950/50 border border-green-800 text-green-400 rounded-lg px-4 py-3 text-sm">
+            {successMessage}
+          </div>
+        )}
+
         <div className="flex items-center gap-3 pt-2">
           <button
             type="submit"
-            disabled={mutation.isPending}
+            disabled={isSaving}
             className="bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 font-semibold rounded-lg px-5 py-2.5 transition-all text-sm"
           >
-            {mutation.isPending ? 'Đang lưu…' : isEdit ? 'Lưu thay đổi' : 'Tạo bài viết'}
+            {isSaving ? 'Đang lưu…' : isEdit ? 'Lưu thay đổi' : 'Tạo bài viết'}
           </button>
           <button
             type="button"
