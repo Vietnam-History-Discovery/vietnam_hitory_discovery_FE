@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react'
 import { auth } from '../firebase'
 import { onAuthStateChanged } from 'firebase/auth'
 import * as authService from '../services/authService'
+import { getMe } from '../services/userService'
 import { AuthContext } from './authContextInstance'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(null)
+  const [role, setRole] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -15,9 +17,16 @@ export function AuthProvider({ children }) {
         setUser(firebaseUser)
         const idToken = await firebaseUser.getIdToken()
         setToken(idToken)
+        try {
+          const profile = await getMe()
+          setRole(profile.role)
+        } catch {
+          setRole(null)
+        }
       } else {
         setUser(null)
         setToken(null)
+        setRole(null)
       }
       setLoading(false)
     })
@@ -33,6 +42,7 @@ export function AuthProvider({ children }) {
   }
 
   const isAuthenticated = () => !!user
+  const isAdmin = role === 'ADMIN'
 
   if (loading) {
     return (
@@ -52,7 +62,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated }}>
+    <AuthContext.Provider value={{ user, token, role, isAdmin, login, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   )
