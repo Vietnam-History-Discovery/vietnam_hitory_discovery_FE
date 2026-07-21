@@ -9,6 +9,8 @@ import DynastyDetailPage from './pages/DynastyDetailPage'
 import WorkspaceLayout from './pages/WorkspaceLayout'
 import ChatPage from './pages/ChatPage'
 import TimelinePage from './pages/TimelinePage'
+import ArticlesPage from './pages/ArticlesPage'
+import ArticleDetailPage from './pages/ArticleDetailPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -37,6 +39,22 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <DynastyDetailPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/articles"
+              element={
+                <ProtectedRoute>
+                  <ArticlesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/articles/:slug"
+              element={
+                <ProtectedRoute>
+                  <ArticleDetailPage />
                 </ProtectedRoute>
               }
             />
