@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { getDynasties } from '../../services/dynastyService'
 
 const ERA_COLOR = {
-  'Độc lập':  '#C8A951',
-  'Bắc thuộc': '#ef4444',
-  'Huyền sử': '#a855f7',
+  'Buổi đầu độc lập': '#9fc2b0',
+  'Lý – Trần':        '#e8c77e',
+  'Hậu Lê – Nguyễn':  '#e0a394',
 }
 
 function formatYear(year) {
@@ -35,8 +35,8 @@ export default function Timeline() {
   return (
     <section className="px-4 py-12 bg-surface">
       <div className="max-w-7xl mx-auto">
-        <h2 className="text-xl font-bold text-gray-100 mb-2">Historical Timeline</h2>
-        <p className="text-sm text-gray-500 mb-10">Milestones in Vietnamese history</p>
+        <h2 className="font-serif text-xl font-semibold text-ink mb-2">Trục Thời Gian Lịch Sử</h2>
+        <p className="text-sm text-ink-muted mb-10">Các mốc son chói lọi trong lịch sử Việt Nam</p>
 
         <div className="overflow-x-auto pb-4 -mx-4 px-4">
           <div className="relative min-w-max">
@@ -69,11 +69,11 @@ export default function Timeline() {
                           >
                             {formatYear(dynasty.start_year)}
                           </span>
-                          <span className="text-xs text-gray-400 group-hover:text-gray-200 transition-colors whitespace-nowrap max-w-[100px] text-center leading-snug">
+                          <span className="text-xs text-ink group-hover:text-primary-bright transition-colors whitespace-nowrap max-w-[100px] text-center leading-snug">
                             {dynasty.name}
                           </span>
                           {dynasty.period && (
-                            <span className="text-[10px] text-gray-600 group-hover:text-gray-400 transition-colors whitespace-nowrap text-center">
+                            <span className="text-[10px] text-ink-muted group-hover:text-ink transition-colors whitespace-nowrap text-center">
                               {dynasty.period}
                             </span>
                           )}
@@ -91,7 +91,7 @@ export default function Timeline() {
             {Object.entries(ERA_COLOR).map(([era, color]) => (
               <div key={era} className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                <span className="text-xs text-gray-500">{era}</span>
+                <span className="text-xs text-ink-muted">{era}</span>
               </div>
             ))}
           </div>

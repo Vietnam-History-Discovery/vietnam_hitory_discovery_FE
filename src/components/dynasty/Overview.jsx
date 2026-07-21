@@ -1,30 +1,39 @@
+import SectionHeader from './SectionHeader'
+import { getChunkText } from './dynastyViewUtils'
+
 const ERA_STYLES = {
-  'Độc lập':  { text: '#22c55e', bg: '#22c55e18', border: '#22c55e50' },
-  'Bắc thuộc': { text: '#ef4444', bg: '#ef444418', border: '#ef444450' },
-  'Huyền sử': { text: '#a855f7', bg: '#a855f718', border: '#a855f750' },
+  'Buổi đầu độc lập': { text: '#9fc2b0', bg: 'rgba(92,122,107,0.1)', border: 'rgba(92,122,107,0.5)' },
+  'Lý – Trần': { text: '#e8c77e', bg: 'rgba(198,161,91,0.08)', border: 'rgba(198,161,91,0.4)' },
+  'Hậu Lê – Nguyễn': { text: '#e0a394', bg: 'rgba(139,58,43,0.1)', border: 'rgba(139,58,43,0.5)' },
+  // Fallbacks
+  'Độc lập': { text: '#9fc2b0', bg: 'rgba(92,122,107,0.1)', border: 'rgba(92,122,107,0.5)' },
+  'Bắc thuộc': { text: '#e0a394', bg: 'rgba(139,58,43,0.1)', border: 'rgba(139,58,43,0.5)' },
+  'Huyền sử': { text: '#e8c77e', bg: 'rgba(198,161,91,0.08)', border: 'rgba(198,161,91,0.4)' },
 }
 
-function MetaBadge({ label, value, color }) {
+function MetaPill({ label, value, isPrimaryColor }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-xs text-gray-500 uppercase tracking-wider">{label}</span>
-      <span className="text-sm font-medium text-gray-200" style={color ? { color } : undefined}>
+    <div className="bg-surface border border-gold-border rounded-[4px] p-2.5 min-w-[100px] flex flex-col gap-1">
+      <span className="text-[10px] text-ink-muted uppercase tracking-widest leading-none block mb-0.5">{label}</span>
+      <span className={`text-[12.5px] font-medium font-mono ${isPrimaryColor ? 'text-primary' : 'text-ink'}`}>
         {value}
       </span>
     </div>
   )
 }
 
-function EraBadge({ era }) {
-  const s = ERA_STYLES[era]
-  if (!s) return <span className="text-sm font-medium text-gray-200">{era}</span>
+function EraPill({ era }) {
+  const s = ERA_STYLES[era] || { text: '#9c9080', bg: 'rgba(156,144,128,0.1)', border: 'rgba(156,144,128,0.3)' }
   return (
-    <span
-      className="text-xs px-2.5 py-1 rounded-full border font-medium"
-      style={{ backgroundColor: s.bg, color: s.text, borderColor: s.border }}
-    >
-      {era}
-    </span>
+    <div className="bg-surface border border-gold-border rounded-[4px] p-2.5 flex flex-col gap-1.5">
+      <span className="text-[10px] text-ink-muted uppercase tracking-widest leading-none block">Era</span>
+      <span
+        className="text-[10.5px] px-2 py-0.5 rounded-full border font-semibold tracking-wide self-start"
+        style={{ backgroundColor: s.bg, color: s.text, borderColor: s.border }}
+      >
+        {era}
+      </span>
+    </div>
   )
 }
 
@@ -35,57 +44,42 @@ export default function Overview({ chunks, listDynasty }) {
 
   if (!hasContent) return null
 
-  return (
-    <section>
-      <h2 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-3">
-        <span className="w-1 h-5 rounded-full bg-primary" />
-        Overview
-      </h2>
+  // Format first chunk text as highlight excerpt if present
+  const highlightText = hasChunks ? getChunkText(chunks[0]) : ''
 
-      <div className="bg-surface rounded-xl border border-surface2 p-6 space-y-5">
-        {/* Metadata row */}
+  return (
+    <section className="space-y-4">
+      <SectionHeader>Tổng quan</SectionHeader>
+
+      <div className="bg-surface border border-gold-border rounded-[3px] p-[18px_18px_16px] space-y-4">
+        {/* Metadata pills */}
         {hasMeta && (
-          <div className="flex flex-wrap items-start gap-6 pb-5 border-b border-surface2">
+          <div className="flex flex-wrap items-start gap-2.5">
             {listDynasty.period && (
-              <MetaBadge label="Period" value={listDynasty.period} color="#C8A951" />
+              <MetaPill label="Giai đoạn" value={listDynasty.period} isPrimaryColor />
             )}
             {listDynasty.capital && (
-              <MetaBadge label="Capital" value={listDynasty.capital} />
+              <MetaPill label="Kinh đô" value={listDynasty.capital} />
             )}
             {listDynasty.era && (
-              <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Era</span>
-                <EraBadge era={listDynasty.era} />
-              </div>
+              <EraPill era={listDynasty.era} />
             )}
           </div>
         )}
 
         {/* Description */}
         {listDynasty?.description && (
-          <p className="text-gray-300 text-sm leading-relaxed">{listDynasty.description}</p>
+          <p className="text-ink text-[14.5px] leading-relaxed max-w-[70ch]">{listDynasty.description}</p>
         )}
 
-        {/* Historical Records */}
-        {hasChunks && (
-          <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              Historical Records
-            </h3>
-            {chunks.map((chunk, i) => {
-              const text = typeof chunk === 'string' ? chunk : chunk.text ?? String(chunk)
-              return (
-                <p
-                  key={i}
-                  className="text-gray-400 text-sm leading-relaxed border-l-2 border-surface2 pl-4"
-                >
-                  {text}
-                </p>
-              )
-            })}
+        {/* Highlight Excerpt from Stitch */}
+        {highlightText && highlightText.trim() && (
+          <div className="border-l-2 border-primary pl-4 py-1 mt-4 italic text-ink-muted text-[13.5px] leading-relaxed max-w-[65ch]">
+            "{highlightText.length > 160 ? highlightText.slice(0, 160) + '…' : highlightText}"
           </div>
         )}
       </div>
     </section>
   )
 }
+
