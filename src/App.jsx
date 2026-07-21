@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/layout/ProtectedRoute'
+import AdminRoute from './components/layout/AdminRoute'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import HomePage from './pages/HomePage'
@@ -11,6 +12,10 @@ import ChatPage from './pages/ChatPage'
 import TimelinePage from './pages/TimelinePage'
 import ArticlesPage from './pages/ArticlesPage'
 import ArticleDetailPage from './pages/ArticleDetailPage'
+import AdminLayout from './pages/AdminLayout'
+import UserManagementTab from './components/admin/UserManagementTab'
+import ArticleManagementTab from './components/admin/ArticleManagementTab'
+import AdminArticleFormPage from './pages/AdminArticleFormPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,6 +63,19 @@ export default function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              element={
+                <AdminRoute>
+                  <AdminLayout />
+                </AdminRoute>
+              }
+            >
+              <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
+              <Route path="/admin/users" element={<UserManagementTab />} />
+              <Route path="/admin/articles" element={<ArticleManagementTab />} />
+              <Route path="/admin/articles/new" element={<AdminArticleFormPage />} />
+              <Route path="/admin/articles/:slug/edit" element={<AdminArticleFormPage />} />
+            </Route>
             <Route
               element={
                 <ProtectedRoute>

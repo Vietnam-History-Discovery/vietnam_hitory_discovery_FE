@@ -1,7 +1,6 @@
 import api from './api'
 
 const articleService = {
-  // List with pagination + optional filter
   getArticles: async ({ page = 0, size = 10, era = null, q = null } = {}) => {
     const params = { page, size }
     if (era) params.era = era
@@ -22,12 +21,33 @@ const articleService = {
     return res.data
   },
 
-  // List all eras with counts
   getEras: async () => {
     const res = await api.get('/api/articles/eras')
     return res.data
   },
+
+  createArticle: async (dto) => {
+    const res = await api.post('/api/articles', dto)
+    return res.data
+  },
+
+  updateArticle: async (slug, dto) => {
+    const res = await api.put(`/api/articles/${slug}`, dto)
+    return res.data
+  },
+
+  deleteArticle: async (slug) => {
+    await api.delete(`/api/articles/${slug}`)
+  },
 }
 
 export default articleService
-export const { getArticles, getArticle, getArticlesByEra, getEras } = articleService
+export const {
+  getArticles,
+  getArticle,
+  getArticlesByEra,
+  getEras,
+  createArticle,
+  updateArticle,
+  deleteArticle,
+} = articleService

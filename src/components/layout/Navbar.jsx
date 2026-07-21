@@ -1,8 +1,9 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { ShieldCheck } from 'lucide-react'
 import { useAuth } from '../../context/useAuth'
 
 export default function Navbar() {
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -56,6 +57,15 @@ export default function Navbar() {
             >
               Chat
             </Link>
+            {isAdmin && (
+              <Link
+                to="/admin"
+                className={`flex items-center gap-1.5 text-sm transition-colors ${isActive('/admin') ? 'text-primary' : 'text-gray-400 hover:text-primary'}`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Admin
+              </Link>
+            )}
           </div>
 
           {/* Right side */}
