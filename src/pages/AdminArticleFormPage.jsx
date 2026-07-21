@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
 import { getArticle } from '../services/articleService'
 import ArticleForm from '../components/admin/ArticleForm'
+import useArticleSave from '../hooks/useArticleSave'
 
 export default function AdminArticleFormPage() {
   const { slug } = useParams()
@@ -17,6 +18,10 @@ export default function AdminArticleFormPage() {
 
   const goToList = () => navigate('/admin/articles')
 
+  const { save, isEdit: isEditing, isSaving, error, successMessage } = useArticleSave(article, {
+    onCreated: goToList,
+  })
+
   return (
     <div>
       <button
@@ -30,7 +35,15 @@ export default function AdminArticleFormPage() {
       {isEdit && (isLoading || !article) ? (
         <p className="text-sm text-gray-500 py-16 text-center">Đang tải…</p>
       ) : (
-        <ArticleForm article={isEdit ? article : null} onDone={goToList} onCancel={goToList} />
+        <ArticleForm
+          article={isEdit ? article : null}
+          isEdit={isEditing}
+          isSaving={isSaving}
+          error={error}
+          successMessage={successMessage}
+          onSubmit={save}
+          onCancel={goToList}
+        />
       )}
     </div>
   )
