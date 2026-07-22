@@ -47,24 +47,10 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = async (email, password) => {
-    try {
-      const u = await authService.login(email, password)
-      return u
-    } catch (err) {
-      console.warn("Firebase login failed, falling back to mock authentication:", err)
-      const mockUser = {
-        uid: 'mock-uid-123',
-        email: email || 'testuser@example.com',
-        displayName: email ? email.split('@')[0] : 'Test User',
-      }
-      localStorage.setItem('mock_user', JSON.stringify(mockUser));
-      setUser({
-        ...mockUser,
-        getIdToken: async () => 'mock-token-123'
-      });
-      setToken('mock-token-123');
-      return mockUser;
-    }
+    console.log('Login attempt:', email)
+    const u = await authService.login(email, password)
+    console.log('Login success:', u)
+    return u
   }
 
   const logout = async () => {
@@ -73,7 +59,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     try {
       await authService.logout()
-    } catch (e) {}
+    } catch (e) { }
   }
 
   const isAuthenticated = () => !!user

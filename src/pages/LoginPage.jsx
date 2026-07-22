@@ -18,6 +18,7 @@ export default function LoginPage() {
       await login(email, password)
       navigate('/')
     } catch (err) {
+      console.error('Login error:', err) 
       setError(err.response?.data?.message || 'Invalid email or password')
     } finally {
       setLoading(false)
