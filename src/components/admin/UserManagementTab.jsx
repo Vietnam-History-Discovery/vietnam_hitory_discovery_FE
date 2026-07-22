@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import {
   createColumnHelper,
@@ -8,10 +8,14 @@ import {
   getFilteredRowModel,
   flexRender,
 } from '@tanstack/react-table'
-import { Trash2, Search, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
-import { getUsers, deleteUser } from '../../services/userService'
+import { Trash2, Pencil, Search, ChevronUp, ChevronDown, ChevronsUpDown } from 'lucide-react'
+import { getUsers, deleteUser, updateUser } from '../../services/userService'
 import { useAuth } from '../../context/useAuth'
 import ConfirmDialog from '../ui/ConfirmDialog'
+
+const inputClass =
+  'w-full bg-surface2 border border-gray-700 rounded-lg px-4 py-2.5 text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm'
+const labelClass = 'block text-sm font-medium text-gray-300 mb-1.5'
 
 function RoleBadge({ role }) {
   const isAdmin = role === 'ADMIN'
@@ -28,10 +32,127 @@ function RoleBadge({ role }) {
   )
 }
 
+function StatusBadge({ status }) {
+  const isActive = status === 'ACTIVE' || !status
+  return (
+    <span
+      className={`text-[10px] uppercase tracking-wider rounded-full px-2 py-0.5 border ${
+        isActive
+          ? 'text-green-400 bg-green-500/10 border-green-500/30'
+          : 'text-red-400 bg-red-500/10 border-red-500/30'
+      }`}
+    >
+      {isActive ? 'Hoạt động' : 'Bị khóa'}
+    </span>
+  )
+}
+
 function SortIcon({ direction }) {
   if (direction === 'asc') return <ChevronUp className="w-3 h-3" />
   if (direction === 'desc') return <ChevronDown className="w-3 h-3" />
   return <ChevronsUpDown className="w-3 h-3 opacity-40" />
+}
+
+function EditUserModal({ user, isSaving, error, onSave, onCancel }) {
+  const [username, setUsername] = useState(user.username || '')
+  const [role, setRole] = useState(user.role || 'USER')
+  const [status, setStatus] = useState(user.status || 'ACTIVE')
+  const [statusReason, setStatusReason] = useState(user.statusReason || '')
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onCancel])
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    onSave({
+      username: username.trim(),
+      role,
+      status,
+      statusReason: status === 'INACTIVE' ? statusReason.trim() : null,
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
+
+      <div className="relative w-full max-w-md bg-surface border border-surface2 rounded-2xl p-6 shadow-2xl animate-message-in">
+        <h2 className="text-lg font-semibold text-gray-100 mb-6">Chỉnh sửa người dùng</h2>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className={labelClass}>Tên người dùng</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Vai trò</label>
+            <select value={role} onChange={(e) => setRole(e.target.value)} className={inputClass}>
+              <option value="USER">User</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+
+          <div>
+            <label className={labelClass}>Trạng thái</label>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputClass}>
+              <option value="ACTIVE">Hoạt động</option>
+              <option value="INACTIVE">Bị khóa</option>
+            </select>
+          </div>
+
+          {status === 'INACTIVE' && (
+            <div>
+              <label className={labelClass}>Lý do khóa</label>
+              <textarea
+                value={statusReason}
+                onChange={(e) => setStatusReason(e.target.value)}
+                required
+                rows={3}
+                placeholder="Nhập lý do khóa tài khoản…"
+                className={inputClass}
+              />
+            </div>
+          )}
+
+          {error && (
+            <div className="bg-red-950/50 border border-red-800 text-red-400 rounded-lg px-4 py-3 text-sm">
+              {error}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSaving}
+              className="text-sm text-gray-400 hover:text-gray-100 transition-colors px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Hủy
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 font-semibold rounded-lg px-4 py-2 text-sm transition-all"
+            >
+              {isSaving ? 'Đang lưu…' : 'Lưu thay đổi'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 const columnHelper = createColumnHelper()
@@ -40,6 +161,7 @@ export default function UserManagementTab() {
   const { user: currentUser } = useAuth()
   const queryClient = useQueryClient()
   const [userToDelete, setUserToDelete] = useState(null)
+  const [userToEdit, setUserToEdit] = useState(null)
   const [sorting, setSorting] = useState([{ id: 'username', desc: false }])
   const [globalFilter, setGlobalFilter] = useState('')
 
@@ -53,6 +175,14 @@ export default function UserManagementTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] })
       setUserToDelete(null)
+    },
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => updateUser(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] })
+      setUserToEdit(null)
     },
   })
 
@@ -81,6 +211,10 @@ export default function UserManagementTab() {
         header: 'Vai trò',
         cell: (info) => <RoleBadge role={info.getValue()} />,
       }),
+      columnHelper.accessor('status', {
+        header: 'Trạng thái',
+        cell: (info) => <StatusBadge status={info.getValue()} />,
+      }),
       columnHelper.display({
         id: 'actions',
         header: '',
@@ -88,17 +222,25 @@ export default function UserManagementTab() {
           const u = info.row.original
           const isSelf = u.id === currentUser?.uid
           const isDeleting = deleteMutation.isPending && deleteMutation.variables === u.id
-          if (isSelf) return null
           return (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-1">
               <button
-                onClick={() => setUserToDelete(u)}
-                disabled={isDeleting}
-                title="Xóa người dùng"
-                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-1.5 rounded-lg text-gray-600 hover:bg-red-500/20 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={() => setUserToEdit(u)}
+                title="Chỉnh sửa"
+                className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-1.5 rounded-lg text-gray-600 hover:bg-primary/20 hover:text-primary"
               >
-                <Trash2 className="w-3.5 h-3.5" />
+                <Pencil className="w-3.5 h-3.5" />
               </button>
+              {!isSelf && (
+                <button
+                  onClick={() => setUserToDelete(u)}
+                  disabled={isDeleting}
+                  title="Xóa người dùng"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0 p-1.5 rounded-lg text-gray-600 hover:bg-red-500/20 hover:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           )
         },
@@ -198,6 +340,19 @@ export default function UserManagementTab() {
         onConfirm={() => deleteMutation.mutate(userToDelete.id)}
         onCancel={() => setUserToDelete(null)}
       />
+
+      {userToEdit && (
+        <EditUserModal
+          user={userToEdit}
+          isSaving={updateMutation.isPending}
+          error={updateMutation.isError ? (updateMutation.error?.response?.data?.error || 'Không thể lưu thay đổi.') : null}
+          onSave={(data) => updateMutation.mutate({ id: userToEdit.id, data })}
+          onCancel={() => {
+            setUserToEdit(null)
+            updateMutation.reset()
+          }}
+        />
+      )}
     </div>
   )
 }

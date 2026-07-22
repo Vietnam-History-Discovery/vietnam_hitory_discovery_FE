@@ -9,6 +9,8 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [token, setToken] = useState(null)
   const [role, setRole] = useState(null)
+  const [userStatus, setUserStatus] = useState(null)
+  const [statusReason, setStatusReason] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -33,13 +35,19 @@ export function AuthProvider({ children }) {
         try {
           const profile = await getMe()
           setRole(profile.role)
+          setUserStatus(profile.status)
+          setStatusReason(profile.statusReason)
         } catch {
           setRole(null)
+          setUserStatus(null)
+          setStatusReason(null)
         }
       } else {
         setUser(null)
         setToken(null)
         setRole(null)
+        setUserStatus(null)
+        setStatusReason(null)
       }
       setLoading(false)
     })
@@ -57,6 +65,9 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('mock_user');
     setUser(null);
     setToken(null);
+    setRole(null);
+    setUserStatus(null);
+    setStatusReason(null);
     try {
       await authService.logout()
     } catch (e) { }
@@ -83,7 +94,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, role, isAdmin, login, logout, isAuthenticated }}>
+    <AuthContext.Provider value={{ user, token, role, userStatus, statusReason, isAdmin, login, logout, isAuthenticated }}>
       {children}
     </AuthContext.Provider>
   )

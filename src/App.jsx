@@ -16,6 +16,8 @@ import AdminLayout from './pages/AdminLayout'
 import UserManagementTab from './components/admin/UserManagementTab'
 import ArticleManagementTab from './components/admin/ArticleManagementTab'
 import AdminArticleFormPage from './pages/AdminArticleFormPage'
+import AccountLockedPage from './pages/AccountLockedPage'
+import PoliciesPage from './pages/PoliciesPage'
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +33,8 @@ export default function App() {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
+            <Route path="/policies" element={<PoliciesPage />} />
+            <Route path="/account-locked" element={<AccountLockedPage />} />
             <Route
               path="/"
               element={

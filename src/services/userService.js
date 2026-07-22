@@ -14,7 +14,12 @@ const userService = {
   deleteUser: async (id) => {
     await api.delete(`/api/users/${id}`)
   },
+
+  updateUser: async (id, data) => {
+    const res = await api.put(`/api/users/${id}`, data)
+    return res.data
+  },
 }
 
 export default userService
-export const { getMe, getUsers, deleteUser } = userService
+export const { getMe, getUsers, deleteUser, updateUser } = userService
