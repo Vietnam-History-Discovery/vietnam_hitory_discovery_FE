@@ -103,3 +103,121 @@ body {
 .animate-timeline-event-in {
   animation: timeline-event-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* Landing page scroll-reveal + hero shimmer + timeline draw-in */
+
+@keyframes section-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-section-reveal {
+  animation: section-reveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes shimmer-gold {
+  0%, 100% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+.animate-shimmer-gold {
+  background: linear-gradient(
+    90deg,
+    var(--color-primary) 0%,
+    var(--color-primary-bright) 50%,
+    var(--color-primary) 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-gold 9s ease-in-out infinite;
+}
+
+@keyframes draw-line {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+.animate-draw-line {
+  transform-origin: left;
+  animation: draw-line 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-section-reveal,
+  .animate-shimmer-gold,
+  .animate-draw-line,
+  .animate-timeline-event-in,
+  .animate-message-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    background-position: 0% 50% !important;
+  }
+}
+
+/* Timeline empty-state illustration */
+
+@keyframes empty-state-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.animate-empty-state-in {
+  animation: empty-state-in 0.35s ease-out both;
+}
+
+@keyframes timeline-preview-draw {
+  0%, 100% {
+    stroke-dashoffset: var(--tl-preview-length, 300);
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+}
+.animate-timeline-preview-draw {
+  stroke-dasharray: var(--tl-preview-length, 300);
+  stroke-dashoffset: var(--tl-preview-length, 300);
+  animation: timeline-preview-draw 3.5s ease-in-out infinite;
+}
+
+@keyframes timeline-preview-pulse {
+  0%, 100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+.animate-timeline-preview-pulse {
+  animation: timeline-preview-pulse 2.4s ease-in-out infinite;
+}
+
+/* Reduced motion: keep the one-shot mount fade-in, drop the infinite loops. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-timeline-preview-draw {
+    animation: none !important;
+    stroke-dashoffset: 0 !important;
+  }
+  .animate-timeline-preview-pulse {
+    animation: none !important;
+    opacity: 0.6 !important;
+  }
+}

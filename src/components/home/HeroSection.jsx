@@ -54,7 +54,7 @@ export default function HeroSection() {
       <h1 className="relative text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-100 leading-tight max-w-3xl mb-5">
         Vietnam History
         <br />
-        <span className="text-primary">Explorer</span>
+        <span className="animate-shimmer-gold">Explorer</span>
       </h1>
 
       {/* Subtitle */}
@@ -73,7 +73,7 @@ export default function HeroSection() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Ask about Vietnamese history…"
-          className="w-full bg-surface border border-surface2 rounded-xl pl-5 pr-32 py-4 text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-colors text-sm"
+          className="w-full bg-surface border border-surface2 rounded-xl pl-5 pr-32 py-4 text-gray-100 placeholder-gray-600 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary focus:shadow-[0_0_24px_-6px_var(--color-primary)] transition-all duration-200 text-sm"
         />
         <button
           type="submit"

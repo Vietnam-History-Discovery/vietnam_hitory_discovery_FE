@@ -1,10 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import Navbar from '../components/layout/Navbar'
 import TableOfContents from '../components/articles/TableOfContents'
 import { ArticleDetailSkeleton } from '../components/articles/ArticleSkeleton'
-import { getArticle, getArticlesByEra } from '../services/articleService'
+import ChatBox from '../components/chat/ChatBox'
+import { getArticle, getArticlesByEra, getArticleChatContext } from '../services/articleService'
+import chatService from '../services/chatService'
 import { ERA_DISPLAY } from '../constants/articles'
 
 function Paragraphs({ text }) {
@@ -36,6 +38,71 @@ export default function ArticleDetailPage() {
     enabled: !!article?.era_slug,
   })
 
+  // Rich, article-specific context string for the chat AI (mirrors DynastyDetailPage's
+  // dynastyChatContext query) — replaces the coarse article.era label, which caused
+  // Chronicle AI to answer about unrelated dynasties within the same broad era.
+  const { data: articleChatContext } = useQuery({
+    queryKey: ['articleChatContext', slug],
+    queryFn: () => getArticleChatContext(slug),
+    enabled: !!slug,
+    retry: false,
+  })
+
+  const [sessionId, setSessionId] = useState(null)
+  const [sessionLoading, setSessionLoading] = useState(false)
+  const articleSessionRef = useRef(null)
+  const creatingSessionRef = useRef(null)
+
+  // Look up an existing chat session for this article, keyed by the route slug
+  // (unlike chapter_title, guaranteed unique). Depends on `article` (not just
+  // `slug`) so it re-fires once the article query resolves — slug alone never
+  // changes for a given page view, so if this only depended on slug and the
+  // first invocation ran before `article` loaded, this lookup would be silently
+  // skipped forever. Does NOT create a new session — that only happens lazily,
+  // the moment the user actually sends their first message (see ensureSession,
+  // passed to ChatBox). ChatBox already loads message history whenever
+  // sessionId is set, so reload/revisit correctly resumes an existing session.
+  useEffect(() => {
+    if (!article || articleSessionRef.current === slug) return
+    articleSessionRef.current = slug
+    setSessionLoading(true)
+
+    const sessionTitle = `${article.chapter_title} – Chronicle Session`
+
+    chatService.getSessions()
+      .then((sessions) => {
+        const existing = sessions?.find((s) => s.title === sessionTitle)
+        const existingId = existing && (existing.id ?? existing.sessionId ?? existing.session_id)
+        if (existingId) setSessionId(existingId)
+      })
+      .catch((err) => {
+        console.error('Failed to check for existing article chat session:', err)
+      })
+      .finally(() => setSessionLoading(false))
+  }, [article, slug])
+
+  // Lazily creates (or reuses) a session the first time the user sends a message.
+  // De-dupes concurrent calls (e.g. rapid double-submit) via creatingSessionRef,
+  // mirroring the mount-time reuse-by-title pattern above.
+  const ensureSession = async () => {
+    if (sessionId) return sessionId
+    if (creatingSessionRef.current) return creatingSessionRef.current
+
+    const sessionTitle = `${article.chapter_title} – Chronicle Session`
+    const promise = chatService.createSession(sessionTitle)
+      .then((session) => {
+        const id = session.id ?? session.sessionId ?? session.session_id
+        setSessionId(id)
+        return id
+      })
+      .finally(() => {
+        creatingSessionRef.current = null
+      })
+
+    creatingSessionRef.current = promise
+    return promise
+  }
+
   const { prevArticle, nextArticle } = useMemo(() => {
     if (!eraArticles || !article) return { prevArticle: null, nextArticle: null }
     const index = eraArticles.findIndex((a) => a.slug === article.slug)
@@ -49,6 +116,36 @@ export default function ArticleDetailPage() {
   const sections = useMemo(() => {
     if (!article?.sections?.length) return []
     return article.sections.map((s) => ({ id: `section-${s.section_num}`, title: s.section_title }))
+  }, [article])
+
+  // Tracks which section heading is currently in view, shared by both TableOfContents
+  // instances below so only one IntersectionObserver is registered for the page.
+  const [activeSectionId, setActiveSectionId] = useState(null)
+  useEffect(() => {
+    const elements = sections.map((s) => document.getElementById(s.id)).filter(Boolean)
+    if (elements.length === 0) return undefined
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+        if (visible[0]) setActiveSectionId(visible[0].target.id)
+      },
+      { rootMargin: '-96px 0px -70% 0px', threshold: 0 }
+    )
+    elements.forEach((el) => observer.observe(el))
+    return () => observer.disconnect()
+  }, [sections])
+
+  const chatSuggestions = useMemo(() => {
+    if (!article) return []
+    return [
+      `Tóm tắt bài viết "${article.chapter_title}"`,
+      'Các sự kiện quan trọng trong giai đoạn này',
+      'Nhân vật lịch sử nổi bật được nhắc đến',
+      'Ý nghĩa lịch sử của thời kỳ này',
+    ]
   }, [article])
 
   if (isError) {
@@ -79,7 +176,7 @@ export default function ArticleDetailPage() {
         {isLoading || !article ? (
           <ArticleDetailSkeleton />
         ) : (
-          <div className="lg:grid lg:grid-cols-[1fr_280px] lg:gap-8 lg:items-start relative">
+          <div className="lg:grid lg:grid-cols-[1fr_360px] lg:gap-8 lg:items-start relative">
             <div className="min-w-0">
               {/* Header */}
               <div className="mb-8">
@@ -114,7 +211,7 @@ export default function ArticleDetailPage() {
               {/* Mobile TOC (collapsible, above content) */}
               {sections.length > 2 && (
                 <div className="lg:hidden">
-                  <TableOfContents sections={sections} variant="accordion" />
+                  <TableOfContents sections={sections} variant="accordion" activeSectionId={activeSectionId} />
                 </div>
               )}
 
@@ -171,14 +268,42 @@ export default function ArticleDetailPage() {
                   )}
                 </div>
               )}
+
+              {/* Mobile ChatBox */}
+              <div className="lg:hidden mt-8">
+                <h2 className="text-lg font-semibold text-gray-100 mb-4 flex items-center gap-3">
+                  <span className="w-1 h-5 rounded-full bg-primary" />
+                  Hỏi Chronicle AI
+                </h2>
+                <div className="h-[480px]">
+                  <ChatBox
+                    sessionId={sessionId}
+                    ensureSession={ensureSession}
+                    dynastyName={article.chapter_title}
+                    chatContext={articleChatContext?.context}
+                    sessionLoading={sessionLoading}
+                    suggestions={chatSuggestions}
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Desktop TOC sidebar */}
-            {sections.length > 2 && (
-              <div className="hidden lg:block sticky top-20 self-start">
-                <TableOfContents sections={sections} variant="sidebar" />
+            {/* Desktop sidebar: TOC + ChatBox */}
+            <div className="hidden lg:flex lg:flex-col lg:gap-4 sticky top-20 self-start">
+              {sections.length > 2 && (
+                <TableOfContents sections={sections} variant="sidebar" activeSectionId={activeSectionId} />
+              )}
+              <div className="h-[480px]">
+                <ChatBox
+                  sessionId={sessionId}
+                  ensureSession={ensureSession}
+                  dynastyName={article.chapter_title}
+                  chatContext={articleChatContext?.context}
+                  sessionLoading={sessionLoading}
+                  suggestions={chatSuggestions}
+                />
               </div>
-            )}
+            </div>
           </div>
         )}
       </div>

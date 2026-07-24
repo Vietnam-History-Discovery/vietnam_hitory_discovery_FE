@@ -7,7 +7,7 @@ export default function ArticleCard({ article }) {
   return (
     <button
       onClick={() => navigate(`/articles/${article.slug}`)}
-      className="group text-left flex flex-col gap-2 bg-surface border border-l-2 border-surface2 border-l-primary/0 rounded-xl p-5 transition-colors hover:border-primary/40 hover:border-l-primary/60"
+      className="group text-left flex flex-col gap-2 w-full h-full bg-surface border border-l-2 border-surface2 border-l-primary/0 rounded-xl p-5 transition-colors hover:border-primary/40 hover:border-l-primary/60"
     >
       <span className="text-xs text-primary uppercase tracking-wider">
         {eraLabel(article.era_slug, article.era)}

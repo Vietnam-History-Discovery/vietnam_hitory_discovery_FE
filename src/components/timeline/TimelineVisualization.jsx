@@ -1,15 +1,33 @@
 import { useRef, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import { BookOpen } from 'lucide-react'
+import { getAllArticles } from '../../services/articleService'
+import { findMatchingArticle } from '../../utils/articleMatcher'
+import TimelineEmptyStateIllustration from './TimelineEmptyStateIllustration'
 
-function EventCard({ event, index }) {
+const EMPTY_STATE_SUGGESTIONS = ['Nhà Trần', 'Khởi nghĩa Tây Sơn', 'Thời kỳ Bắc thuộc']
+
+function EventCard({ event, index, articles, onNavigate }) {
   const side = index % 2 === 0 ? 'left' : 'right'
+  const match = findMatchingArticle(event, articles)
+
+  const handleClick = () => {
+    if (match) {
+      onNavigate(`/articles/${match.slug}`)
+    }
+  }
 
   return (
     <div className={`relative flex items-start gap-6 ${side === 'right' ? 'flex-row-reverse' : ''}`}>
       <div className={`flex-1 ${side === 'right' ? 'text-left' : 'text-right'}`}>
         <div
-          className={`inline-block max-w-md bg-surface border border-surface2 rounded-xl p-4 ${
-            side === 'right' ? 'ml-auto' : 'mr-auto'
-          }`}
+          className={`inline-block max-w-md bg-surface border rounded-xl p-4 transition-all ${
+            match
+              ? 'border-primary/40 hover:border-primary hover:bg-surface2/60 cursor-pointer'
+              : 'border-surface2 cursor-default'
+          } ${side === 'right' ? 'ml-auto' : 'mr-auto'}`}
+          onClick={match ? handleClick : undefined}
         >
           {event.dateLabel && (
             <span className="inline-block text-[10px] font-bold text-primary uppercase tracking-wider mb-1.5 bg-primary/10 px-2 py-0.5 rounded-full">
@@ -30,6 +48,15 @@ function EventCard({ event, index }) {
               ))}
             </div>
           )}
+          {match && (
+            <div className="flex items-center gap-1 mt-2 pt-2 border-t border-surface2">
+              <BookOpen className="w-3 h-3 text-primary" />
+              <span className="text-[10px] text-primary">Xem bài viết liên quan</span>
+              {match.confidence === 'low' && (
+                <span className="text-[10px] text-gray-600 ml-1">(theo thời đại)</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -45,8 +72,15 @@ function SpineDot({ isLast }) {
   )
 }
 
-export default function TimelineVisualization({ snapshot, loading }) {
+export default function TimelineVisualization({ snapshot, loading, onSend }) {
   const containerRef = useRef(null)
+  const navigate = useNavigate()
+
+  const { data: articles = [] } = useQuery({
+    queryKey: ['articles-all-summary'],
+    queryFn: getAllArticles,
+    staleTime: Infinity, // articles don't change often
+  })
 
   useEffect(() => {
     if (containerRef.current) {
@@ -67,14 +101,28 @@ export default function TimelineVisualization({ snapshot, loading }) {
 
   if (!snapshot) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-background">
-        <div className="text-center max-w-xs">
-          <div className="w-12 h-12 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center text-primary text-xl mx-auto mb-3">
-            ◈
-          </div>
-          <p className="text-sm text-gray-500">
-            Đặt câu hỏi về lịch sử để tạo dòng thời gian
+      <div className="flex-1 flex items-center justify-center bg-background px-4">
+        <div className="text-center max-w-sm animate-empty-state-in">
+          <TimelineEmptyStateIllustration className="w-56 sm:w-72 h-auto mx-auto mb-6" />
+          <h2 className="font-serif text-xl sm:text-2xl font-semibold text-gray-100 mb-2">
+            Khám phá dòng thời gian lịch sử
+          </h2>
+          <p className="text-sm text-gray-500 leading-relaxed mb-5">
+            Đặt câu hỏi về một triều đại, nhân vật hay sự kiện — AI sẽ dựng dòng thời gian chi
+            tiết kèm bối cảnh và nguồn tham khảo.
           </p>
+          <div className="hidden sm:flex flex-wrap items-center justify-center gap-2">
+            <span className="text-xs text-gray-600">Thử:</span>
+            {EMPTY_STATE_SUGGESTIONS.map((s) => (
+              <button
+                key={s}
+                onClick={() => onSend?.(s)}
+                className="text-xs bg-surface border border-surface2 hover:border-primary/50 hover:text-primary text-gray-400 rounded-full px-3 py-1 transition-colors"
+              >
+                {s}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     )
@@ -108,7 +156,13 @@ export default function TimelineVisualization({ snapshot, loading }) {
               >
                 <SpineDot isLast={index === events.length - 1} />
                 <div className={side === 'left' ? 'pr-[calc(50%+2rem)]' : 'pl-[calc(50%+2rem)]'}>
-                  <EventCard event={event} index={index} isLast={index === events.length - 1} />
+                  <EventCard
+                    event={event}
+                    index={index}
+                    articles={articles}
+                    onNavigate={navigate}
+                    isLast={index === events.length - 1}
+                  />
                 </div>
               </div>
             )

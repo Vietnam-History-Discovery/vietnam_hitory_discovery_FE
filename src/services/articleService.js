@@ -26,6 +26,23 @@ const articleService = {
     return res.data
   },
 
+  // Rich, article-specific context string for the chat AI (mirrors dynastyService.getDynastyChatContext)
+  getArticleChatContext: async (slug) => {
+    const res = await api.get(`/api/articles/${slug}/chat-context`)
+    return res.data
+  },
+
+  // GET /api/articles caps `size` at 20 server-side, so it can't return the
+  // whole catalog in one call. listByEra() has no such cap, so fetch eras
+  // first and pull every article per era in parallel.
+  getAllArticles: async () => {
+    const eras = await articleService.getEras()
+    const perEra = await Promise.all(
+      eras.map((era) => articleService.getArticlesByEra(era.era_slug))
+    )
+    return perEra.flat()
+  },
+
   createArticle: async (dto) => {
     const res = await api.post('/api/articles', dto)
     return res.data
@@ -47,6 +64,8 @@ export const {
   getArticle,
   getArticlesByEra,
   getEras,
+  getAllArticles,
+  getArticleChatContext,
   createArticle,
   updateArticle,
   deleteArticle,

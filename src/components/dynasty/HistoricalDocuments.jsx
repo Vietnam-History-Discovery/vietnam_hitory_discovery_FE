@@ -39,19 +39,39 @@ function DocumentCard({ chunk, index }) {
   )
 }
 
-export default function HistoricalDocuments({ chunks }) {
+export default function HistoricalDocuments({ chunks, dynastyName }) {
   if (!chunks?.length) return null
+
+  // Filter chunks có title liên quan đến dynasty, bỏ "Mở đầu" và chunks không rõ nguồn
+  const filtered = chunks
+    .filter(chunk => {
+      const title = (getChunkTitle(chunk, 0) || '').toLowerCase()
+      // Bỏ chunks có title chung chung
+      if (title === 'mở đầu' || title.startsWith('mở đầu')) return false
+      return true
+    })
+    // Ưu tiên chunks có title chứa tên dynasty
+    .sort((a, b) => {
+      const nameL = (dynastyName || '').toLowerCase().replace(/^nhà\s+/i, '')
+      const aTitle = (a.title || '').toLowerCase()
+      const bTitle = (b.title || '').toLowerCase()
+      const aMatch = aTitle.includes(nameL) ? -1 : 0
+      const bMatch = bTitle.includes(nameL) ? -1 : 0
+      return aMatch - bMatch
+    })
+    .slice(0, 5) // Giới hạn 5 chunks
+
+  if (!filtered.length) return null
 
   return (
     <section className="space-y-4">
-      <SectionHeader>Tư liệu lịch sử</SectionHeader>
-
+      <SectionHeader>Nguồn sử liệu gốc</SectionHeader>
+      <p className="text-xs text-gray-600 -mt-2">Trích từ Đại Việt Sử Ký Toàn Thư</p>
       <div className="space-y-3">
-        {chunks.map((chunk, i) => (
+        {filtered.map((chunk, i) => (
           <DocumentCard key={i} chunk={chunk} index={i} />
         ))}
       </div>
     </section>
   )
 }
-

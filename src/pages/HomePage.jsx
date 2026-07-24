@@ -1,7 +1,9 @@
 import Navbar from '../components/layout/Navbar'
 import HeroSection from '../components/home/HeroSection'
 import FeaturedDynasties from '../components/home/FeaturedDynasties'
-import Timeline from '../components/home/Timeline'
+import TimelineSection from '../components/home/TimelineSection'
+import ArticlesPreviewSection from '../components/home/ArticlesPreviewSection'
+import ChatCTASection from '../components/home/ChatCTASection'
 
 function Footer() {
   return (
@@ -28,7 +30,9 @@ export default function HomePage() {
       <main className="flex-1">
         <HeroSection />
         <FeaturedDynasties />
-        <Timeline />
+        <TimelineSection />
+        <ArticlesPreviewSection />
+        <ChatCTASection />
       </main>
       <Footer />
     </div>

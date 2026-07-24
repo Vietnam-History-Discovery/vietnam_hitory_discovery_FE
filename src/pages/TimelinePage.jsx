@@ -109,19 +109,20 @@ export default function TimelinePage() {
     chatService.getSession(activeSessionId)
       .then((data) => {
         if (requestId !== loadRequestRef.current) return
-        const merged = mergeMessages([], data.messages ?? [], activeSessionId)
-        setMessages(merged)
+        setMessages((prev) => {
+          const merged = mergeMessages(prev, data.messages ?? [], activeSessionId)
+          const lastTimelineMsg = [...merged].reverse().find(
+            (m) => !isUserMessage(m) && m.timeline
+          )
+          if (lastTimelineMsg) {
+            setSelectedSnapshot(lastTimelineMsg.timeline)
+          }
+          return merged
+        })
         const title = data.session?.title ?? data.title
         if (title) setSessionTitle(title)
-
-        const lastTimelineMsg = [...merged].reverse().find(
-          (m) => !isUserMessage(m) && m.timeline
-        )
-        if (lastTimelineMsg) {
-          setSelectedSnapshot(lastTimelineMsg.timeline)
-        }
       })
-      .catch(() => {})
+      .catch(() => { })
   }, [activeSessionId])
 
   const handleSend = useCallback(async (text) => {
@@ -213,6 +214,7 @@ export default function TimelinePage() {
       <TimelineVisualization
         snapshot={selectedSnapshot}
         loading={sending && !selectedSnapshot}
+        onSend={handleSend}
       />
 
       {/* Right: Timeline chat panel */}

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { askQuestion, getSessionMessages } from '../../services/chatService'
+import { streamMessage, getSessionMessages } from '../../services/chatService'
 import { Sparkles, MessageSquare } from 'lucide-react'
 
 function getSuggestions(dynastyName) {
@@ -10,18 +10,7 @@ function getSuggestions(dynastyName) {
   ]
 }
 
-function extractAnswer(data) {
-  return (
-    data?.answer ??
-    data?.content ??
-    data?.response ??
-    data?.message ??
-    data?.text ??
-    'Không nhận được phản hồi.'
-  )
-}
-
-function MessageBubble({ role, content }) {
+function MessageBubble({ role, content, isStreaming }) {
   if (!content || !content.trim()) return null
 
   const isUser = role === 'USER' || role === 'user'
@@ -47,6 +36,9 @@ function MessageBubble({ role, content }) {
         }`}
       >
         {content}
+        {isStreaming && (
+          <span className="inline-block w-1.5 h-3 bg-primary/70 ml-0.5 align-middle animate-pulse" />
+        )}
       </div>
     </div>
   )
@@ -68,16 +60,25 @@ function ThinkingBubble() {
   )
 }
 
-export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLoading, pendingQuestion }) {
+export default function ChatBox({ sessionId, ensureSession, dynastyName, chatContext, sessionLoading, pendingQuestion, suggestions: suggestionsProp }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [streamingMessageId, setStreamingMessageId] = useState(null)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
   const chatContainerRef = useRef(null)
-  const suggestions = getSuggestions(dynastyName)
+  const suggestions = suggestionsProp ?? getSuggestions(dynastyName)
 
   const queueRef = useRef([])
+
+  // Tracks the latest sessionId prop so async stream callbacks can detect
+  // whether the user has since navigated to a different dynasty/article
+  // (a new ChatBox instance with a different sessionId) and drop stale updates.
+  const sessionIdRef = useRef(sessionId)
+  useEffect(() => {
+    sessionIdRef.current = sessionId
+  }, [sessionId])
 
   // Load message history when session is ready
   useEffect(() => {
@@ -87,6 +88,7 @@ export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLo
         if (msgs.length > 0) {
           // Normalize messages from service format
           const formatted = msgs.map(m => ({
+            id: m.id,
             role: m.role?.toLowerCase() === 'user' ? 'USER' : 'ASSISTANT',
             content: m.content
           }))
@@ -103,33 +105,80 @@ export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLo
 
   const send = async (text) => {
     const trimmed = text.trim()
-    if (!sessionId || !trimmed || sending) return
+    if (!trimmed || sending) return
 
-    setMessages((prev) => [...prev, { role: 'USER', content: trimmed }])
+    const assistantMsgId = `local-assistant-${Date.now()}`
+    let errorHandled = false
+
+    setMessages((prev) => [
+      ...prev,
+      { id: `local-user-${Date.now()}`, role: 'USER', content: trimmed },
+      { id: assistantMsgId, role: 'ASSISTANT', content: '' },
+    ])
     setInput('')
     setSending(true)
+    setStreamingMessageId(assistantMsgId)
 
-    try {
-      const data = await askQuestion(sessionId, trimmed, chatContext || dynastyName)
+    const finishStreaming = () => {
+      setStreamingMessageId((current) => (current === assistantMsgId ? null : current))
+      setSending(false)
+      setTimeout(() => inputRef.current?.focus(), 50)
+    }
+
+    // targetSessionId is undefined until ensureSession() resolves below; showError
+    // treats that as "always show" (nothing to compare staleness against yet).
+    const showError = (targetSessionId) => {
+      if (errorHandled) return
+      if (targetSessionId != null && sessionIdRef.current !== targetSessionId) return
+      errorHandled = true
       setMessages((prev) => [
-        ...prev,
-        { role: 'ASSISTANT', content: extractAnswer(data) },
-      ])
-    } catch {
-      setMessages((prev) => [
-        ...prev,
+        ...prev.filter((m) => m.id !== assistantMsgId || m.content),
         {
+          id: `${assistantMsgId}-error`,
           role: 'error',
           content: 'Không nhận được phản hồi từ Chronicle AI. Vui lòng thử lại.',
         },
       ])
-    } finally {
-      setSending(false)
-      setTimeout(() => inputRef.current?.focus(), 50)
+      finishStreaming()
+    }
+
+    try {
+      const targetSessionId = await ensureSession()
+      if (!targetSessionId) {
+        showError()
+        return
+      }
+      // ensureSession's setSessionId(...) triggers a parent re-render that syncs
+      // sessionIdRef via prop — but that hasn't necessarily landed yet by the time
+      // this await resumes. Set it directly so the staleness checks below are
+      // correct for this first message, not just for messages sent afterward.
+      sessionIdRef.current = targetSessionId
+
+      await streamMessage(
+        targetSessionId,
+        trimmed,
+        {
+          onDelta: (deltaText) => {
+            if (sessionIdRef.current !== targetSessionId) return
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, content: m.content + deltaText } : m
+            ))
+          },
+          onDone: () => {
+            if (sessionIdRef.current === targetSessionId) finishStreaming()
+          },
+          onError: () => showError(targetSessionId),
+        },
+        chatContext || dynastyName
+      )
+    } catch {
+      showError()
     }
   }
 
-  // Handle incoming graph queries (queue buffer if chat is not connected)
+  // Handle incoming graph queries (queue buffer while the mount-time existing-session
+  // lookup is still running — send() lazily creates a session itself otherwise, so
+  // it no longer needs to wait for sessionId to already be set).
   useEffect(() => {
     if (!pendingQuestion?.text) return
 
@@ -151,22 +200,22 @@ export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLo
       }
     }
 
-    if (!sessionId || sessionLoading) {
+    if (sessionLoading) {
       queueRef.current.push(triggerAsk)
     } else {
       triggerAsk()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingQuestion, sessionId, sessionLoading])
+  }, [pendingQuestion, sessionLoading])
 
-  // Dispatch queued queries once session connects
+  // Dispatch queued queries once the mount-time session lookup finishes
   useEffect(() => {
-    if (sessionId && !sessionLoading && queueRef.current.length > 0) {
+    if (!sessionLoading && queueRef.current.length > 0) {
       const actions = [...queueRef.current]
       queueRef.current = []
       actions.forEach((act) => act())
     }
-  }, [sessionId, sessionLoading])
+  }, [sessionLoading])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -176,13 +225,13 @@ export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLo
   // Demo Error simulation for testing empty/error visual state
   const handleSimulateError = () => {
     const text = input.trim() || 'Câu hỏi thử nghiệm'
-    setMessages((prev) => [...prev, { role: 'USER', content: text }])
+    setMessages((prev) => [...prev, { id: `local-user-${Date.now()}`, role: 'USER', content: text }])
     setInput('')
     setSending(true)
     setTimeout(() => {
       setMessages((prev) => [
         ...prev,
-        { role: 'error', content: 'Không nhận được phản hồi từ Chronicle AI. Vui lòng thử lại.' }
+        { id: `local-error-${Date.now()}`, role: 'error', content: 'Không nhận được phản hồi từ Chronicle AI. Vui lòng thử lại.' }
       ])
       setSending(false)
     }, 800)
@@ -225,10 +274,17 @@ export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLo
         )}
 
         {messages.map((msg, i) => (
-          <MessageBubble key={i} role={msg.role} content={msg.content} />
+          <MessageBubble
+            key={msg.id ?? i}
+            role={msg.role}
+            content={msg.content}
+            isStreaming={msg.id === streamingMessageId}
+          />
         ))}
 
-        {sending && <ThinkingBubble />}
+        {sending && (!streamingMessageId || !messages.find((m) => m.id === streamingMessageId)?.content) && (
+          <ThinkingBubble />
+        )}
         <div ref={bottomRef} />
       </div>
 
@@ -242,7 +298,7 @@ export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLo
             <button
               key={s}
               onClick={() => send(s)}
-              disabled={!sessionId || sending}
+              disabled={sessionLoading || sending}
               className="w-full text-left text-[12.5px] text-ink bg-transparent hover:border-primary hover:text-primary-bright border border-gold-border rounded-[6px] px-3 py-2 transition-colors disabled:opacity-40 leading-snug cursor-pointer focus:outline-none"
             >
               {s}
@@ -277,12 +333,10 @@ export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLo
               handleSubmit(e)
             }
           }}
-          disabled={!sessionId || sending}
+          disabled={sessionLoading || sending}
           placeholder={
             sessionLoading
               ? 'Đang khởi tạo phiên…'
-              : !sessionId
-              ? 'Chưa kết nối'
               : `Hỏi về ${dynastyName}…`
           }
           className="flex-1 bg-background border border-gold-border focus:border-primary focus:ring-0 rounded-[6px] px-3 py-2 text-[13px] text-ink placeholder-ink-muted focus:outline-none transition-colors disabled:opacity-50 resize-none h-[38px] max-h-[80px] font-sans"
@@ -290,7 +344,7 @@ export default function ChatBox({ sessionId, dynastyName, chatContext, sessionLo
         />
         <button
           type="submit"
-          disabled={!sessionId || sending || !input.trim()}
+          disabled={sessionLoading || sending || !input.trim()}
           className="shrink-0 w-[38px] h-[38px] flex items-center justify-center rounded-[6px] bg-primary hover:bg-primary-bright disabled:bg-surface2 disabled:text-ink-muted disabled:opacity-40 disabled:cursor-not-allowed text-[#1a1309] transition-all cursor-pointer font-bold"
           aria-label="Gửi câu hỏi"
         >

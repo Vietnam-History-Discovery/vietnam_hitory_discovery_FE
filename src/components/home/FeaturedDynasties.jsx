@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { getDynasties } from '../../services/dynastyService'
+import useInView from '../../hooks/useInView'
 
 const ERA_STYLES = {
   'Buổi đầu độc lập': { text: '#9fc2b0', bg: 'rgba(92,122,107,0.1)', border: 'rgba(92,122,107,0.5)' },
@@ -14,14 +15,16 @@ const ERA_STYLES = {
 
 function getEraGroups(dynasties) {
   const eraMap = {}
-  dynasties.forEach((d) => {
-    const eraName = d.era || 'Khác'
-    if (!eraMap[eraName]) eraMap[eraName] = { minYear: d.start_year ?? Infinity, items: [] }
-    eraMap[eraName].items.push(d)
-    if ((d.start_year ?? Infinity) < eraMap[eraName].minYear) {
-      eraMap[eraName].minYear = d.start_year
-    }
-  })
+  dynasties
+    .filter(d => d.description && d.description.trim() !== '')
+    .forEach((d) => {
+      const eraName = d.era || 'Khác'
+      if (!eraMap[eraName]) eraMap[eraName] = { minYear: d.start_year ?? Infinity, items: [] }
+      eraMap[eraName].items.push(d)
+      if ((d.start_year ?? Infinity) < eraMap[eraName].minYear) {
+        eraMap[eraName].minYear = d.start_year
+      }
+    })
   return Object.entries(eraMap)
     .map(([era, { minYear, items }]) => ({ era, minYear, items }))
     .sort((a, b) => a.minYear - b.minYear)
@@ -39,7 +42,7 @@ function EraBadge({ era }) {
   )
 }
 
-function DynastyCard({ dynasty, onClick }) {
+function DynastyCard({ dynasty, onClick, delayIndex }) {
   const descPreview = dynasty.description
     ? dynasty.description.slice(0, 80) + (dynasty.description.length > 80 ? '…' : '')
     : null
@@ -47,7 +50,10 @@ function DynastyCard({ dynasty, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="group flex-shrink-0 w-64 rounded-[3px] bg-surface border border-gold-border hover:border-gold-border-strong hover:bg-surface2 hover:-translate-y-0.5 transition-all duration-150 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-bright p-[18px_18px_16px] flex flex-col gap-2 relative"
+      style={delayIndex != null ? { animationDelay: `${delayIndex * 70}ms` } : undefined}
+      className={`group flex-shrink-0 w-64 rounded-[3px] bg-surface border border-gold-border hover:border-gold-border-strong hover:bg-surface2 hover:-translate-y-1 hover:shadow-[0_0_24px_-8px_var(--color-primary)] transition-all duration-200 ease-out text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-bright p-[18px_18px_16px] flex flex-col gap-2 relative ${
+        delayIndex != null ? 'animate-section-reveal' : ''
+      }`}
     >
       <div className="flex justify-between items-start w-full gap-2">
         <h3 className="font-serif text-lg font-semibold text-ink group-hover:text-primary-bright transition-colors">
@@ -86,22 +92,24 @@ function SkeletonCard() {
 
 export default function FeaturedDynasties() {
   const navigate = useNavigate()
+  const { ref, isInView } = useInView()
   const { data: dynasties, isLoading, isError } = useQuery({
     queryKey: ['dynasties'],
     queryFn: getDynasties,
   })
 
   const groups = dynasties ? getEraGroups(dynasties) : []
+  let cardIndex = 0
 
   return (
-    <section className="px-4 py-12 relative">
+    <section ref={ref} className="px-4 py-20 lg:py-28 relative bg-surface/50">
       {/* Decorative background layers from Stitch */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute top-0 left-10 w-96 h-96 rounded-full bg-primary/3 blur-3xl" />
       </div>
 
       <div className="max-w-7xl mx-auto relative">
-        <div className="flex items-end justify-between mb-8">
+        <div className={`flex items-end justify-between mb-8 ${isInView ? 'animate-section-reveal' : 'opacity-0'}`}>
           <div>
             <h2 className="font-serif text-2xl font-semibold text-ink">Triều Đại Nổi Bật</h2>
             <p className="text-sm text-ink-muted mt-1">Khám phá các triều đại lịch sử Việt Nam</p>
@@ -136,15 +144,19 @@ export default function FeaturedDynasties() {
                     <div className="flex-1 h-px bg-gradient-to-r from-gold-border-strong to-transparent" />
                   </div>
                   <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide -mx-4 px-4">
-                    {items.map((dynasty) => (
+                    {items.map((dynasty) => {
+                      const delayIndex = cardIndex++
+                      return (
                       <DynastyCard
                         key={dynasty.name}
                         dynasty={dynasty}
+                        delayIndex={isInView ? delayIndex : null}
                         onClick={() =>
                           navigate(`/dynasties/${encodeURIComponent(dynasty.name)}`)
                         }
                       />
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )

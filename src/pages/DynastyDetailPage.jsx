@@ -5,10 +5,53 @@ import Navbar from '../components/layout/Navbar'
 import DynastyHero from '../components/dynasty/DynastyHero'
 import Overview from '../components/dynasty/Overview'
 import DynastyGraphPanel from '../components/dynasty/DynastyGraphPanel'
-import HistoricalDocuments from '../components/dynasty/HistoricalDocuments'
+import RelatedArticles from '../components/dynasty/RelatedArticles'
 import ChatBox from '../components/chat/ChatBox'
+import PdfPreviewModal from '../components/ui/PdfPreviewModal'
 import { getDynasties, getDynastyByName, getDynastyFromList, getDynastyChatContext } from '../services/dynastyService'
 import { createSession, getSessions } from '../services/chatService'
+
+const SOURCES = [
+  {
+    id: 'dvsktt',
+    title: 'Đại Việt Sử Ký Toàn Thư',
+    author: 'Ngô Sĩ Liên et al.',
+    year: 'Thế kỷ XV',
+    description: 'Bộ sử ký chính thống đầy đủ nhất về lịch sử Việt Nam từ thời Hồng Bàng đến thế kỷ XVII.',
+    pdfUrl: 'https://tuvienquangduc.com.au/lichsu/lichsuvietnam/Daivietsukytoanthu.pdf',
+    badge: 'DVSKTT',
+  },
+  {
+    id: 'vnsl',
+    title: 'Việt Nam Sử Lược',
+    author: 'Trần Trọng Kim',
+    year: '1920',
+    description: 'Bộ sử viết bằng chữ quốc ngữ đầu tiên, trình bày lịch sử Việt Nam từ thượng cổ đến thời Pháp thuộc.',
+    pdfUrl: 'https://cvdvn.net/wp-content/uploads/2018/03/viet-nam-su-luoc-tran-trong-kim1.pdf',
+    badge: 'VNSL',
+  },
+]
+
+function SourceCard({ source, onPreview }) {
+  return (
+    <div className="bg-surface border border-surface2 rounded-xl p-4 flex items-start gap-3">
+      <div className="shrink-0 text-xs text-primary border border-primary/35 rounded-full px-2 py-1 font-semibold tracking-wider uppercase">
+        {source.badge}
+      </div>
+      <div className="flex-1 min-w-0">
+        <h4 className="text-sm font-semibold text-gray-100">{source.title}</h4>
+        <p className="text-xs text-gray-500 mt-0.5">{source.author} · {source.year}</p>
+        <p className="text-xs text-gray-400 mt-1 leading-relaxed">{source.description}</p>
+        <button
+          onClick={() => onPreview(source)}
+          className="mt-2 text-xs text-primary hover:text-primary/80 font-semibold transition-colors flex items-center gap-1"
+        >
+          <span>📄</span> Xem tài liệu gốc →
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function ContentSkeleton() {
   return (
@@ -43,9 +86,11 @@ export default function DynastyDetailPage() {
   const [sessionLoading, setSessionLoading] = useState(false)
   const [pendingQuestion, setPendingQuestion] = useState(null)
   const [isLargeScreen, setIsLargeScreen] = useState(true)
+  const [previewSource, setPreviewSource] = useState(null)
 
   const initialisedRef = useRef(false)
   const lastQuestionRef = useRef(null)
+  const creatingSessionRef = useRef(null)
 
   // Track window resizing to ensure only one ChatBox is mounted at a time
   useEffect(() => {
@@ -83,47 +128,48 @@ export default function DynastyDetailPage() {
     retry: false,
   })
 
-  // Create or reuse chat session once dynasty name is available
+  // Look up an existing chat session for this dynasty once its name is available.
+  // Does NOT create a new session — that only happens lazily, the moment the user
+  // actually sends their first message (see ensureSession, passed to ChatBox).
   useEffect(() => {
     if (!decodedName || initialisedRef.current) return
     initialisedRef.current = true
     setSessionLoading(true)
 
+    const titleToFind = `${decodedName} – Chronicle Session`
+
     getSessions()
       .then((sessions) => {
-        const titleToFind = `${decodedName} – Chronicle Session`
         const existing = sessions?.find(s => s.title === titleToFind)
-        if (existing) {
-          const id = existing.id ?? existing.sessionId ?? existing.session_id
-          if (id) {
-            setSessionId(id)
-            setSessionLoading(false)
-            return
-          }
-        }
-        
-        // Otherwise, create a new session
-        return createSession(titleToFind).then((session) => {
-          const id = session.id ?? session.sessionId ?? session.session_id
-          if (!id) {
-            console.error("Could not resolve sessionId from response:", session)
-          }
-          setSessionId(id)
-        })
+        const id = existing && (existing.id ?? existing.sessionId ?? existing.session_id)
+        if (id) setSessionId(id)
       })
       .catch((err) => {
-        console.error("Failed to reuse session, falling back to direct create:", err)
-        return createSession(`${decodedName} – Chronicle Session`).then((session) => {
-          const id = session.id ?? session.sessionId ?? session.session_id
-          if (!id) {
-            console.error("Could not resolve sessionId from response:", session)
-          }
-          setSessionId(id)
-        })
+        console.error("Failed to check for existing session:", err)
       })
-      .catch(console.error)
       .finally(() => setSessionLoading(false))
   }, [decodedName])
+
+  // Lazily creates (or reuses) a session the first time the user sends a message.
+  // De-dupes concurrent calls (e.g. rapid double-submit) via creatingSessionRef,
+  // mirroring the mount-time reuse-by-title pattern above.
+  const ensureSession = async () => {
+    if (sessionId) return sessionId
+    if (creatingSessionRef.current) return creatingSessionRef.current
+
+    const promise = createSession(`${decodedName} – Chronicle Session`)
+      .then((session) => {
+        const id = session.id ?? session.sessionId ?? session.session_id
+        setSessionId(id)
+        return id
+      })
+      .finally(() => {
+        creatingSessionRef.current = null
+      })
+
+    creatingSessionRef.current = promise
+    return promise
+  }
 
   // Click-to-ask trigger callback from graph nodes or fallback chips (with double-click protection)
   const handleAskGraph = (text) => {
@@ -181,7 +227,7 @@ export default function DynastyDetailPage() {
             ) : dynasty ? (
               <>
                 <Overview chunks={dynasty.sample_chunks} listDynasty={listDynasty} />
-                
+
                 {/* Stitch Knowledge Graph panel replacing KeyFigures */}
                 <DynastyGraphPanel
                   persons={dynasty.persons || []}
@@ -191,7 +237,27 @@ export default function DynastyDetailPage() {
                   sessionReady={!!sessionId && !sessionLoading}
                 />
 
-                <HistoricalDocuments chunks={dynasty.sample_chunks} />
+                <RelatedArticles
+                  dynastyName={dynasty.name ?? decodedName}
+                  dynastyStartYear={listDynasty?.start_year}
+                />
+
+                <section className="space-y-3 mt-8">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    Nguồn tài liệu tham khảo
+                  </h3>
+                  {SOURCES.map((source) => (
+                    <SourceCard key={source.id} source={source} onPreview={setPreviewSource} />
+                  ))}
+                </section>
+
+                {previewSource && (
+                  <PdfPreviewModal
+                    url={previewSource.pdfUrl}
+                    title={previewSource.title}
+                    onClose={() => setPreviewSource(null)}
+                  />
+                )}
               </>
             ) : null}
           </div>
@@ -201,6 +267,7 @@ export default function DynastyDetailPage() {
             {isLargeScreen && (
               <ChatBox
                 sessionId={sessionId}
+                ensureSession={ensureSession}
                 dynastyName={dynasty?.name ?? decodedName}
                 chatContext={chatContextData?.context}
                 sessionLoading={sessionLoading}
@@ -222,6 +289,7 @@ export default function DynastyDetailPage() {
             {!isLargeScreen && (
               <ChatBox
                 sessionId={sessionId}
+                ensureSession={ensureSession}
                 dynastyName={dynasty?.name ?? decodedName}
                 chatContext={chatContextData?.context}
                 sessionLoading={sessionLoading}
