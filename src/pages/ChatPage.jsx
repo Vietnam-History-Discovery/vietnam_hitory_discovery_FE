@@ -154,6 +154,10 @@ export default function ChatPage() {
         onMeta: (meta) => {
           const s = extractSuggestions(meta)
           if (s && activeSessionIdRef.current === sessionId) setSuggestions(s)
+          if (activeSessionIdRef.current !== sessionId) return
+          setMessages((prev) => prev.map((m) => (
+            m.id === assistantId ? { ...m, sources: meta.sources ?? [] } : m
+          )))
         },
         onDelta: (deltaText) => {
           if (activeSessionIdRef.current !== sessionId) return
@@ -170,7 +174,7 @@ export default function ChatPage() {
           clearStreaming()
           setMessages((prev) => prev.map((m) => (
             m.id === assistantId && !m.content
-              ? { ...m, content: 'Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.' }
+              ? { ...m, content: 'Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.', sources: [] }
               : m
           )))
         },

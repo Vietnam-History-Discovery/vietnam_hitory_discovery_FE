@@ -67,6 +67,7 @@ export default function ChatWindow({
                 key={msg.id || i}
                 role={msg.role}
                 content={msg.content}
+                sources={msg.sources}
                 isStreaming={msg.id === streamingMessageId}
               />
             ))}

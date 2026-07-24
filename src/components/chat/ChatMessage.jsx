@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import SourceTags from './SourceTags'
 
-export default function ChatMessage({ role, content, isStreaming = false }) {
+export default function ChatMessage({ role, content, sources = [], isStreaming = false }) {
   const isUser = role === 'user' || role === 'USER'
   const showMarkdown = isUser || !isStreaming
   const rootRef = useRef(null)
@@ -95,6 +96,7 @@ export default function ChatMessage({ role, content, isStreaming = false }) {
             </ReactMarkdown>
           )}
         </div>
+        {!isUser && !isStreaming && <SourceTags sources={sources} />}
       </div>
     </div>
   )

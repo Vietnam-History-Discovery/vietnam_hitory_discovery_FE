@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
 import TimelineSnapshotCard from './TimelineSnapshotCard'
+import SourceTags from '../chat/SourceTags'
 
-function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot, isStreaming = false }) {
+function TimelineMessage({ role, content, timeline, sources = [], createdAt, onSelectSnapshot, isStreaming = false }) {
   const isUser = role === 'USER' || role === 'user'
   const rootRef = useRef(null)
 
@@ -45,13 +46,14 @@ function TimelineMessage({ role, content, timeline, createdAt, onSelectSnapshot,
             content
           )}
         </div>
+        {!isUser && !isStreaming && <SourceTags sources={sources} />}
         {!isUser && timeline && (
           <div className="mt-1 w-full max-w-xs animate-message-in">
             <TimelineSnapshotCard
               snapshot={timeline}
               createdAt={createdAt}
               isActive={false}
-              onClick={() => onSelectSnapshot?.(timeline)}
+              onClick={() => onSelectSnapshot?.(timeline, sources)}
             />
           </div>
         )}
@@ -90,7 +92,7 @@ export default function TimelineChatPanel({
   }
 
   return (
-    <div className="w-[400px] bg-surface border-l border-surface2 flex flex-col shrink-0 h-full">
+    <div className="w-full lg:w-[400px] h-[45%] lg:h-full bg-surface border-t lg:border-t-0 lg:border-l border-surface2 flex flex-col shrink-0">
       {/* Header */}
       <div className="px-4 py-4 border-b border-surface2 shrink-0">
         <h2 className="text-[10px] text-gray-500 uppercase tracking-widest font-medium">
@@ -116,6 +118,7 @@ export default function TimelineChatPanel({
             role={msg.role}
             content={msg.content}
             timeline={msg.timeline}
+            sources={msg.sources}
             createdAt={msg.createdAt}
             onSelectSnapshot={onSelectSnapshot}
             isStreaming={msg.id === streamingMessageId}

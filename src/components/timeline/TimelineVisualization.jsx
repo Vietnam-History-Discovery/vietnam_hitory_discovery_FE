@@ -5,6 +5,7 @@ import { BookOpen } from 'lucide-react'
 import { getAllArticles } from '../../services/articleService'
 import { findMatchingArticle } from '../../utils/articleMatcher'
 import TimelineEmptyStateIllustration from './TimelineEmptyStateIllustration'
+import SourceTags from '../chat/SourceTags'
 
 const EMPTY_STATE_SUGGESTIONS = ['Nhà Trần', 'Khởi nghĩa Tây Sơn', 'Thời kỳ Bắc thuộc']
 
@@ -72,7 +73,7 @@ function SpineDot({ isLast }) {
   )
 }
 
-export default function TimelineVisualization({ snapshot, loading, onSend }) {
+export default function TimelineVisualization({ snapshot, sources, loading, onSend }) {
   const containerRef = useRef(null)
   const navigate = useNavigate()
 
@@ -136,6 +137,9 @@ export default function TimelineVisualization({ snapshot, loading, onSend }) {
       <div className="text-center mb-10 animate-message-in">
         <h2 className="text-lg font-bold text-gray-100">{snapshot.title}</h2>
         <p className="text-xs text-gray-600 mt-1">{events.length} sự kiện lịch sử</p>
+        <div className="flex justify-center mt-2">
+          <SourceTags sources={sources} />
+        </div>
       </div>
 
       {/* Timeline */}

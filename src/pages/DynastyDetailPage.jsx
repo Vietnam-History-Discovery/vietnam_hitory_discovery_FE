@@ -226,7 +226,11 @@ export default function DynastyDetailPage() {
               <ContentSkeleton />
             ) : dynasty ? (
               <>
-                <Overview chunks={dynasty.sample_chunks} listDynasty={listDynasty} />
+                <Overview
+                  chunks={dynasty.sample_chunks}
+                  listDynasty={listDynasty}
+                  sources={dynasty.sources}
+                />
 
                 {/* Stitch Knowledge Graph panel replacing KeyFigures */}
                 <DynastyGraphPanel
@@ -302,5 +306,4 @@ export default function DynastyDetailPage() {
     </div>
   )
 }
-
 

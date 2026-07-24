@@ -1,5 +1,6 @@
 import SectionHeader from './SectionHeader'
 import { getChunkText } from './dynastyViewUtils'
+import SourceTags from '../chat/SourceTags'
 
 const ERA_STYLES = {
   'Buổi đầu độc lập': { text: '#9fc2b0', bg: 'rgba(92,122,107,0.1)', border: 'rgba(92,122,107,0.5)' },
@@ -37,7 +38,7 @@ function EraPill({ era }) {
   )
 }
 
-export default function Overview({ chunks, listDynasty }) {
+export default function Overview({ chunks, listDynasty, sources }) {
   const hasChunks = chunks?.length > 0
   const hasMeta = listDynasty?.period || listDynasty?.capital || listDynasty?.era
   const hasContent = listDynasty?.description || hasMeta || hasChunks
@@ -78,8 +79,9 @@ export default function Overview({ chunks, listDynasty }) {
             "{highlightText.length > 160 ? highlightText.slice(0, 160) + '…' : highlightText}"
           </div>
         )}
+
+        <SourceTags sources={sources} />
       </div>
     </section>
   )
 }
-

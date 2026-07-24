@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { streamMessage, getSessionMessages } from '../../services/chatService'
 import { Sparkles, MessageSquare } from 'lucide-react'
+import SourceTags from './SourceTags'
 
 function getSuggestions(dynastyName) {
   return [
@@ -10,7 +11,7 @@ function getSuggestions(dynastyName) {
   ]
 }
 
-function MessageBubble({ role, content, isStreaming }) {
+function MessageBubble({ role, content, sources, isStreaming }) {
   if (!content || !content.trim()) return null
 
   const isUser = role === 'USER' || role === 'user'
@@ -28,17 +29,20 @@ function MessageBubble({ role, content, isStreaming }) {
 
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-[92%] rounded-lg px-3 py-2 text-xs leading-relaxed font-sans ${
-          isUser
-            ? 'bg-primary text-[#1a1309] font-medium'
-            : 'bg-surface2 text-ink border border-gold-border'
-        }`}
-      >
-        {content}
-        {isStreaming && (
-          <span className="inline-block w-1.5 h-3 bg-primary/70 ml-0.5 align-middle animate-pulse" />
-        )}
+      <div className={`max-w-[92%] flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
+        <div
+          className={`rounded-lg px-3 py-2 text-xs leading-relaxed font-sans ${
+            isUser
+              ? 'bg-primary text-[#1a1309] font-medium'
+              : 'bg-surface2 text-ink border border-gold-border'
+          }`}
+        >
+          {content}
+          {isStreaming && (
+            <span className="inline-block w-1.5 h-3 bg-primary/70 ml-0.5 align-middle animate-pulse" />
+          )}
+        </div>
+        {!isUser && !isStreaming && <SourceTags sources={sources} />}
       </div>
     </div>
   )
@@ -90,7 +94,8 @@ export default function ChatBox({ sessionId, ensureSession, dynastyName, chatCon
           const formatted = msgs.map(m => ({
             id: m.id,
             role: m.role?.toLowerCase() === 'user' ? 'USER' : 'ASSISTANT',
-            content: m.content
+            content: m.content,
+            sources: m.sources ?? [],
           }))
           setMessages(formatted)
         }
@@ -158,6 +163,12 @@ export default function ChatBox({ sessionId, ensureSession, dynastyName, chatCon
         targetSessionId,
         trimmed,
         {
+          onMeta: (meta) => {
+            if (sessionIdRef.current !== targetSessionId) return
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantMsgId ? { ...m, sources: meta.sources ?? [] } : m
+            ))
+          },
           onDelta: (deltaText) => {
             if (sessionIdRef.current !== targetSessionId) return
             setMessages((prev) => prev.map((m) =>
@@ -278,6 +289,7 @@ export default function ChatBox({ sessionId, ensureSession, dynastyName, chatCon
             key={msg.id ?? i}
             role={msg.role}
             content={msg.content}
+            sources={msg.sources}
             isStreaming={msg.id === streamingMessageId}
           />
         ))}
@@ -354,4 +366,3 @@ export default function ChatBox({ sessionId, ensureSession, dynastyName, chatCon
     </div>
   )
 }
-

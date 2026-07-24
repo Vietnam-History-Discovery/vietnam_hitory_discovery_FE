@@ -74,6 +74,7 @@ export default function TimelinePage() {
   const [messages, setMessages] = useState([])
   const [sending, setSending] = useState(false)
   const [selectedSnapshot, setSelectedSnapshot] = useState(null)
+  const [selectedSources, setSelectedSources] = useState([])
   const [sessionTitle, setSessionTitle] = useState('')
   const [streamingMessageId, setStreamingMessageId] = useState(null)
 
@@ -93,6 +94,7 @@ export default function TimelinePage() {
       if (ignore) return
       setMessages([])
       setSelectedSnapshot(null)
+      setSelectedSources([])
       setSessionTitle('')
     })
 
@@ -116,6 +118,7 @@ export default function TimelinePage() {
           )
           if (lastTimelineMsg) {
             setSelectedSnapshot(lastTimelineMsg.timeline)
+            setSelectedSources(lastTimelineMsg.sources ?? [])
           }
           return merged
         })
@@ -165,13 +168,22 @@ export default function TimelinePage() {
         setStreamingMessageId((current) => (current === assistantId ? null : current))
       }
 
+      let responseSources = []
       await chatService.streamTimelineMessage(sessionId, trimmed, {
+        onMeta: (meta) => {
+          if (activeSessionIdRef.current !== sessionId) return
+          responseSources = meta.sources ?? []
+          setMessages((prev) => prev.map((m) => (
+            m.id === assistantId ? { ...m, sources: responseSources } : m
+          )))
+        },
         onEvent: (name, data) => {
           if (name !== 'timeline' || activeSessionIdRef.current !== sessionId) return
           setMessages((prev) => prev.map((m) => (
             m.id === assistantId ? { ...m, timeline: data } : m
           )))
           setSelectedSnapshot(data)
+          setSelectedSources(responseSources)
         },
         onDelta: (deltaText) => {
           if (activeSessionIdRef.current !== sessionId) return
@@ -188,7 +200,7 @@ export default function TimelinePage() {
           clearStreaming()
           setMessages((prev) => prev.map((m) => (
             m.id === assistantId && !m.content
-              ? { ...m, content: 'Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.' }
+              ? { ...m, content: 'Xin lỗi, có lỗi xảy ra. Vui lòng thử lại.', sources: [] }
               : m
           )))
         },
@@ -202,17 +214,19 @@ export default function TimelinePage() {
     }
   }, [activeSessionId, navigate, queryClient, sessionTitle])
 
-  const handleSelectSnapshot = useCallback((snapshot) => {
+  const handleSelectSnapshot = useCallback((snapshot, sources = []) => {
     if (snapshot) {
       setSelectedSnapshot(snapshot)
+      setSelectedSources(sources)
     }
   }, [])
 
   return (
-    <>
+    <div className="flex-1 flex flex-col lg:flex-row min-w-0 min-h-0 overflow-hidden">
       {/* Center: Timeline visualization */}
       <TimelineVisualization
         snapshot={selectedSnapshot}
+        sources={selectedSources}
         loading={sending && !selectedSnapshot}
         onSend={handleSend}
       />
@@ -225,6 +239,6 @@ export default function TimelinePage() {
         onSend={handleSend}
         onSelectSnapshot={handleSelectSnapshot}
       />
-    </>
+    </div>
   )
 }
